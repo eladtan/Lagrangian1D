@@ -10,7 +10,7 @@ MinMod::~MinMod()
 {}
 
 void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<double> const & edges, 
-	vector<pair<Primitive, Primitive>>& values) const
+	vector<pair<Primitive, Primitive> >& values) const
 {
 	size_t N = edges.size();
 	values.resize(N);
