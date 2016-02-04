@@ -25,17 +25,17 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 		if (sl.density*sr.density < 0)
 			slope.density = 0;
 		else
-			slope.density = min(abs(sl.density), min(abs(sr.density), abs(sc.density))) * (sl.density > 0 ?
+			slope.density = std::min(std::abs(sl.density), std::min(std::abs(sr.density), std::abs(sc.density))) * (sl.density > 0 ?
 				1 : -1);
 		if (sl.pressure*sr.pressure < 0)
 			slope.pressure = 0;
 		else
-			slope.pressure = min(abs(sl.pressure), min(abs(sr.pressure), abs(sc.pressure))) * (sl.pressure > 0 ?
+			slope.pressure = std::min(std::abs(sl.pressure), std::min(std::abs(sr.pressure), std::abs(sc.pressure))) * (sl.pressure > 0 ?
 				1 : -1);
 		if (sl.velocity*sr.velocity < 0)
 			slope.velocity = 0;
 		else
-			slope.velocity = min(abs(sl.velocity), min(abs(sr.velocity), abs(sc.velocity))) * (sl.velocity > 0 ?
+			slope.velocity = std::min(std::abs(sl.velocity), std::min(std::abs(sr.velocity), std::abs(sc.velocity))) * (sl.velocity > 0 ?
 				1 : -1);
 		values[i].second = cells[i] - slope * (0.5*(edges[i + 1] - edges[i]));
 		values[i+1].first = cells[i] + slope * (0.5*(edges[i + 1] - edges[i]));
