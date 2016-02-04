@@ -1,5 +1,6 @@
 #include "Boundary.hpp"
 #include <algorithm>
+#include<cmath>
 
 Boundary::~Boundary()
 {}
@@ -70,17 +71,17 @@ vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, v
 	if (sl.density*sr.density < 0)
 		slope0.density = 0;
 	else
-		slope0.density = min(abs(sl.density), min(abs(sr.density), abs(sc.density))) * (sl.density > 0 ?
+		slope0.density = min(fabs(sl.density), min(fabs(sr.density), fabs(sc.density))) * (sl.density > 0 ?
 			1 : -1);
 	if (sl.pressure*sr.pressure < 0)
 		slope0.pressure = 0;
 	else
-		slope0.pressure = min(abs(sl.pressure), min(abs(sr.pressure), abs(sc.pressure))) * (sl.pressure > 0 ?
+		slope0.pressure = min(fabs(sl.pressure), min(fabs(sr.pressure), fabs(sc.pressure))) * (sl.pressure > 0 ?
 			1 : -1);
 	if (sl.velocity*sr.velocity < 0)
 		slope0.velocity = 0;
 	else
-		slope0.velocity = min(abs(sl.velocity), min(abs(sr.velocity), abs(sc.velocity))) * (sl.velocity > 0 ?
+		slope0.velocity = min(fabs(sl.velocity), min(fabs(sr.velocity), fabs(sc.velocity))) * (sl.velocity > 0 ?
 			1 : -1);
 	sr = sl;
 	sl = (cells[N - 2] - cells[N - 3]) / (0.5*(edges[N - 1] - edges[N - 3]));
@@ -88,17 +89,17 @@ vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, v
 	if (sl.density*sr.density < 0)
 		slopeN.density = 0;
 	else
-		slopeN.density = min(abs(sl.density), min(abs(sr.density), abs(sc.density))) * (sl.density > 0 ?
+		slopeN.density = min(fabs(sl.density), min(fabs(sr.density), fabs(sc.density))) * (sl.density > 0 ?
 			1 : -1);
 	if (sl.pressure*sr.pressure < 0)
 		slopeN.pressure = 0;
 	else
-		slopeN.pressure = min(abs(sl.pressure), min(abs(sr.pressure), abs(sc.pressure))) * (sl.pressure > 0 ?
+		slopeN.pressure = min(fabs(sl.pressure), min(fabs(sr.pressure), fabs(sc.pressure))) * (sl.pressure > 0 ?
 			1 : -1);
 	if (sl.velocity*sr.velocity < 0)
 		slopeN.velocity = 0;
 	else
-		slopeN.velocity = min(abs(sl.velocity), min(abs(sr.velocity), abs(sc.velocity))) * (sl.velocity > 0 ?
+		slopeN.velocity = min(fabs(sl.velocity), min(fabs(sr.velocity), fabs(sc.velocity))) * (sl.velocity > 0 ?
 			1 : -1);
 
 	if (index == 0)
