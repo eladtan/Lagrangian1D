@@ -1,6 +1,9 @@
 #include "MinMod.hpp"
 #include <algorithm>
 
+using std::abs;
+using std::min;
+using std::max;
 
 MinMod::MinMod(Boundary const& boundary):boundary_(boundary)
 {}
