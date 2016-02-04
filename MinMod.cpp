@@ -1,9 +1,6 @@
 #include "MinMod.hpp"
+#include <cmath>
 #include <algorithm>
-
-using std::abs;
-using std::min;
-using std::max;
 
 MinMod::MinMod(Boundary const& boundary):boundary_(boundary)
 {}
@@ -28,17 +25,17 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 		if (sl.density*sr.density < 0)
 			slope.density = 0;
 		else
-			slope.density = std::min(std::abs(sl.density), std::min(std::abs(sr.density), std::abs(sc.density))) * (sl.density > 0 ?
+			slope.density = std::min(std::fabs(sl.density), std::min(std::fabs(sr.density), std::fabs(sc.density))) * (sl.density > 0 ?
 				1 : -1);
 		if (sl.pressure*sr.pressure < 0)
 			slope.pressure = 0;
 		else
-			slope.pressure = std::min(std::abs(sl.pressure), std::min(std::abs(sr.pressure), std::abs(sc.pressure))) * (sl.pressure > 0 ?
+			slope.pressure = std::min(std::fabs(sl.pressure), std::min(std::fabs(sr.pressure), std::fabs(sc.pressure))) * (sl.pressure > 0 ?
 				1 : -1);
 		if (sl.velocity*sr.velocity < 0)
 			slope.velocity = 0;
 		else
-			slope.velocity = std::min(std::abs(sl.velocity), std::min(std::abs(sr.velocity), std::abs(sc.velocity))) * (sl.velocity > 0 ?
+			slope.velocity = std::min(std::fabs(sl.velocity), std::min(std::fabs(sr.velocity), std::fabs(sc.velocity))) * (sl.velocity > 0 ?
 				1 : -1);
 		values[i].second = cells[i] - slope * (0.5*(edges[i + 1] - edges[i]));
 		values[i+1].first = cells[i] + slope * (0.5*(edges[i + 1] - edges[i]));
