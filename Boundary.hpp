@@ -35,4 +35,28 @@ public:
 	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
 		edges, size_t index)const;
 };
+
+class ConstantPrimitive : public Boundary
+{
+private:
+	Primitive outer_;
+public:
+	ConstantPrimitive(Primitive outer);
+
+	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
+		edges, size_t index)const;
+};
+
+class SeveralBoundary : public Boundary
+{
+private:
+	Boundary const& left_;
+	Boundary const& right_;
+public:
+	SeveralBoundary(Boundary const& left, Boundary const& right);
+
+	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
+		edges, size_t index)const;
+
+};
 #endif //BOUNDARY_HPP
