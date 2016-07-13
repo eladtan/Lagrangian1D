@@ -2,11 +2,30 @@
 #include <algorithm>
 #include<cmath>
 
+BoundarySolution::~BoundarySolution() {}
+
+VacuumInFlow::VacuumInFlow(bool calc_left, bool calc_right) :calc_left_(calc_left), calc_right_(calc_right_) {}
+
+pair<RSsolution, RSsolution> VacuumInFlow::GetBoundaryValues(vector<Primitive> const& cells)const
+{
+	RSsolution left, right;
+	left.pressure = 0;
+	right.pressure = 0;
+	left.velocity = cells[0].velocity;
+	right.velocity = cells.back().velocity;
+	return pair<RSsolution, RSsolution>(left, right);
+}
+
+std::pair<bool, bool> VacuumInFlow::ShouldCalc()const
+{
+	return pair<bool, bool>(calc_left_, calc_right_);
+}
+
 Boundary::~Boundary()
 {}
 
 vector<Primitive> RigidWall::GetBoundaryValues(vector<Primitive> const & cells,
-	vector<double> const & edges, size_t index) const
+	vector<double> const & edges, size_t index,double time) const
 {
 	vector<Primitive> res(3);
 	if (index == 0)
@@ -38,7 +57,7 @@ vector<Primitive> RigidWall::GetBoundaryValues(vector<Primitive> const & cells,
 }
 
 vector<Primitive> FreeFlow::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges,
-	size_t index) const
+	size_t index, double time) const
 {
 	vector<Primitive> res(3);
 	if (index == 0)
@@ -59,7 +78,8 @@ vector<Primitive> FreeFlow::GetBoundaryValues(vector<Primitive> const & cells, v
 	return res;
 }
 
-vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index) const
+vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index,
+	double time) const
 {
 	vector<Primitive> res(3);
 	size_t N = edges.size();
@@ -120,18 +140,20 @@ vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, v
 SeveralBoundary::SeveralBoundary(Boundary const & left, Boundary const & right):left_(left),right_(right)
 {}
 
-vector<Primitive> SeveralBoundary::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index) const
+vector<Primitive> SeveralBoundary::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index, 
+	double time) const
 {
 	if(index==0)
-		return left_.GetBoundaryValues(cells, edges, index);
+		return left_.GetBoundaryValues(cells, edges, index,time);
 	else
-		return right_.GetBoundaryValues(cells, edges, index);
+		return right_.GetBoundaryValues(cells, edges, index,time);
 }
 
 ConstantPrimitive::ConstantPrimitive(Primitive outer):outer_(outer)
 {}
 
-vector<Primitive> ConstantPrimitive::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index) const
+vector<Primitive> ConstantPrimitive::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index, 
+	double time) const
 {
 	vector<Primitive> res(3);
 	size_t N = edges.size();
@@ -153,14 +175,13 @@ vector<Primitive> ConstantPrimitive::GetBoundaryValues(vector<Primitive> const &
 	{
 		dxl = edges[1] - edges[0];
 		dxr = 0.5*(edges[2] - edges[0]);
-		dxc = (0.5*(edges[2] + 2*edges[1] - 2*edges[0]));
+		dxc = 0.5*edges[2] + edges[1] - 1.5*edges[0];
 	}
 	else
 	{
 		dxl = 0.5*(edges[N-1] - edges[N-3]);
 		dxr = edges[N-1] - edges[N-2];
-		dxc = edges[N - 1] + 0.5*(edges[N - 1] - edges[N - 2]) - (0.5*(edges[N - 1] + edges[N - 2]) -
-			0.5*(edges[N - 2] - edges[N - 3]));
+		dxc = 1.5*edges[N - 1] - edges[N - 2] - 0.5*edges[N - 3];
 	}
 	Primitive sr = (right - center) / dxr;
 	Primitive sl = (center - left) / dxl;

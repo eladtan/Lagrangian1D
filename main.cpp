@@ -84,18 +84,14 @@ namespace
 		{
 			double y = 0.5 * xsi[n - 1] * (edges[i + 1] + edges[i]) / R;
 			double Theta = 0;
-			bool outside = false;
 			if (y > xsi[n - 1])
 			{
-				Theta = theta[n - 2] * 0.1;
-				outside = true;
+				throw "bad size";
 			}
 			else
 				Theta = LinearInterpolation(xsi, theta, y);
 			res[i].density = rhoc*pow(Theta, Nemden);
 			res[i].pressure = K*pow(res[i].density, (Nemden + 1) / Nemden);
-			if (outside)
-				res[i].pressure = res[i].density*0.1;
 			res[i].velocity = 0;
 		}
 		return res;
@@ -103,10 +99,17 @@ namespace
 
 	vector<double> getedges(size_t N, double L)
 	{
-		double dx = L / N;
+		double factor = 0.9999;
+		double R = L*factor;
+		size_t Nouter = (1 - factor) * 5 * N;
+		size_t Nmid = N - Nouter;
+		double dx = R / Nmid;
 		vector<double> res(N + 1);
-		for (size_t i = 0; i <= N; ++i)
+		for (size_t i = 0; i <= Nmid; ++i)
 			res[i] = i*dx;
+		dx = (L - res[Nmid])/(Nouter+1);
+		for (size_t i = Nmid+1; i <= N; ++i)
+			res[i] = res[i - 1] + dx;
 		return res;
 	}
 
@@ -143,6 +146,7 @@ namespace
 	{
 	private:
 		vector<double> acc_;
+		mutable vector<double> total_acc_;
 		double rhoc_;
 		double alpha_;
 		double Mbh_;
@@ -151,7 +155,7 @@ namespace
 		bool selfgravity_;
 	public:
 		Gravity(double M, double R, double Mbh, double Rp,bool selfgravity,double stargamma, vector<double> const& edges) :
-			acc_(vector<double>()),rhoc_(0),alpha_(0), Mbh_(Mbh), Rp_(Rp), f_(0),selfgravity_(selfgravity)
+			acc_(vector<double>()), total_acc_(vector<double>()),rhoc_(0),alpha_(0), Mbh_(Mbh), Rp_(Rp), f_(0),selfgravity_(selfgravity)
 		{
 			vector<double> xi, dtheta;
 			if (stargamma > 1.6)
@@ -179,6 +183,7 @@ namespace
 				double Mtemp = -rhoc_*alpha_*alpha_*alpha_ * 4 * M_PI*LinearInterpolation(xi, dtheta, xsi)*xsi*xsi;
 				acc_[i] = -Mtemp / (x*x);
 			}
+			total_acc_ = acc_;
 		}
 
 		void CalcForce(vector<double> const& edges, vector<Primitive> const& cells, double time,
@@ -195,9 +200,19 @@ namespace
 				double R = 2 * Rp_ / (1 + cos(f_));
 				double x = 0.5*(edges[i + 1] + edges[i]);
 				acc -= Mbh_*x*pow(sqrt(R*R + x*x), -3);
+				total_acc_[i] = acc;
 				extensives[i].momentum += extensives[i].mass*acc*dt;
 				extensives[i].energy += extensives[i].mass*acc*dt*cells[i].velocity;
 			}
+		}
+
+		double GetInverseTimeStep(vector<double> const& edges)const
+		{
+			double res = 0;
+			size_t Nloop = total_acc_.size();
+			for (size_t i = 0; i < Nloop; ++i)
+				res = max(res, sqrt(abs(total_acc_[i])/ (edges[i + 1] - edges[i])));
+			return res;
 		}
 	};
 
@@ -229,7 +244,7 @@ int main(void)
 	double gamma = 4./3.;
 	double beta = 8;
 	ReadInput(beta, star_gamma, gamma, selfgravity);
-	double cfl = 0.2;
+	double cfl = 0.1;
 	ExactRS rs(gamma);
 	IdealGas eos(gamma);
 	RigidWall bl;
@@ -245,7 +260,7 @@ int main(void)
 	double Nemden = 1 / (star_gamma - 1);
 	double fstart = -acos(2 / beta - 1);
 	double tstart = sqrt(2 * pow(Rt / beta, 3) / Mbh)*tan(fstart / 2)*(3 + pow(tan(fstart / 2), 2)) / 3;
-	vector<double> edges = getedges(Np, R*1.01);
+	vector<double> edges = getedges(Np, R);
 	vector<Primitive> cells = calc_init(edges, M, R, Nemden,star_gamma);
 	Gravity source(M, R, Mbh, Rp,selfgravity,star_gamma,edges);
 	hdsim sim(cfl, cells, edges, interp, eos, rs,source);
@@ -264,9 +279,8 @@ int main(void)
 			write_snapshot_to_hdf5(sim, "c:/sim_data/temp.h5");
 		if (sim.GetCycle() % 100 == 0)
 			cout << "Time = " << sim.GetTime() << " Cycle = " << sim.GetCycle() << endl;
-		sim.TimeAdvance2();
 		if (sim.GetTime() - last > dt || sim.GetCycle() == 0 || sim.GetCells()[0].density>1.02*maxd || 
-			sim.GetCells()[0].density*1.02<mind)
+			sim.GetCells()[0].density*1.02<mind || last*sim.GetTime()<0)
 		{
 			string dirloc = "c:\\TidalData";
 			CreateDirectory(dirloc.c_str(), NULL);
@@ -274,6 +288,7 @@ int main(void)
 				dirloc += "\\gamma53";
 			else
 				dirloc += "\\gamma43";
+			CreateDirectory(dirloc.c_str(), NULL);
 			if (gamma>1.7)
 				dirloc += "\\gas2";
 			else
@@ -291,12 +306,18 @@ int main(void)
 			dirloc += int2str(int(beta));
 			CreateDirectory(dirloc.c_str(), NULL);
 
-			write_snapshot_to_hdf5(sim,dirloc+"\\tide_" + int2str(counter) + ".h5");
+			if(last*sim.GetTime()<0)
+				write_snapshot_to_hdf5(sim, dirloc + "\\special.h5");
+			else
+			{
+				write_snapshot_to_hdf5(sim, dirloc + "\\tide_" + int2str(counter) + ".h5");
+				++counter;
+			}
 			last = sim.GetTime();
-			++counter;
 			maxd = max(maxd, sim.GetCells()[0].density);
 			mind = sim.GetCells()[0].density;
 		}
+		sim.TimeAdvance2();
 	}
 //	write_snapshot_to_hdf5(sim, "c:/sim_data/snap1d.h5");
 	return 0;

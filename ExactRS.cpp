@@ -82,7 +82,7 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 	// Is there a vaccum?
 	double dv = right.velocity - left.velocity;
 	double soundspeeds = 2 * (sqrt(gamma_*left.pressure / left.density) + sqrt(gamma_*right.pressure / right.density)) / (gamma_ - 1);
-	if (dv > soundspeeds)
+	if (dv >= soundspeeds)
 	{
 		RSsolution res;
 		res.pressure = 0;
@@ -101,6 +101,7 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 	double dp = 0;
 	double p = res.pressure;
 	size_t counter = 0;
+	double minp = std::min(left.pressure, right.pressure);
 	do
 	{
 		p = res.pressure;
@@ -119,7 +120,7 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 			eo.AddEntry("Right velocity", right.velocity);
 			throw eo;
 		}
-	} while ((abs(dp) > eps*(p+res.pressure))&&(dv*eps>value));
+	} while (((abs(dp) > eps*(p+res.pressure))&&(dv*eps>value))&&res.pressure>eps*minp);
 	double fr = (res.pressure > right.pressure) ? CalcFshock(right, res.pressure, gamma_) : CalcFrarefraction(
 		right, res.pressure, gamma_);
 	double fl = (res.pressure > left.pressure) ? CalcFshock(left, res.pressure, gamma_) : CalcFrarefraction(

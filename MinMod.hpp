@@ -16,7 +16,7 @@ public:
 	~MinMod();
 
 	void GetInterpolatedValues(vector<Primitive> const& cells, vector<double> const& edges, vector<pair<Primitive,
-		Primitive> > & values)const;
+		Primitive> > & values,double time)const;
 };
 
 #endif

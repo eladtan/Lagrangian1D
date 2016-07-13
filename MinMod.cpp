@@ -10,7 +10,7 @@ MinMod::~MinMod()
 {}
 
 void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<double> const & edges, 
-	vector<pair<Primitive, Primitive> >& values) const
+	vector<pair<Primitive, Primitive> >& values,double time) const
 {
 	size_t N = edges.size();
 	values.resize(N);
@@ -41,8 +41,8 @@ void MinMod::GetInterpolatedValues(vector<Primitive> const & cells, vector<doubl
 		values[i+1].first = cells[i] + slope * (0.5*(edges[i + 1] - edges[i]));
 	}
 	// Do boundaries
-	vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0);
-	vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size()-1);
+	vector<Primitive> left = boundary_.GetBoundaryValues(cells, edges, 0,time);
+	vector<Primitive> right = boundary_.GetBoundaryValues(cells, edges, edges.size()-1,time);
 	values[0].first = left[0];
 	values[0].second = left[1];
 	values[1].first = left[2]; 
