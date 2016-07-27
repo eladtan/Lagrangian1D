@@ -1,10 +1,11 @@
 #include "Boundary.hpp"
 #include <algorithm>
 #include<cmath>
+#include <iostream>
 
 BoundarySolution::~BoundarySolution() {}
 
-VacuumInFlow::VacuumInFlow(bool calc_left, bool calc_right) :calc_left_(calc_left), calc_right_(calc_right_) {}
+VacuumInFlow::VacuumInFlow(bool calc_left, bool calc_right) :calc_left_(calc_left), calc_right_(calc_right) {}
 
 pair<RSsolution, RSsolution> VacuumInFlow::GetBoundaryValues(vector<Primitive> const& cells)const
 {
@@ -12,7 +13,8 @@ pair<RSsolution, RSsolution> VacuumInFlow::GetBoundaryValues(vector<Primitive> c
 	left.pressure = 0;
 	right.pressure = 0;
 	left.velocity = cells[0].velocity;
-	right.velocity = cells.back().velocity;
+	right.velocity = cells.back().velocity+3*sqrt(5.*cells.back().pressure/cells.back().density/3.0);
+	//right.velocity = 0;
 	return pair<RSsolution, RSsolution>(left, right);
 }
 

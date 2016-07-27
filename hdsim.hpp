@@ -40,5 +40,7 @@ public:
 	vector<double> const& GetEdges()const;
 	size_t GetCycle()const;
 	void SetTime(double t);
+	void SetCycle(size_t cyc);
+	void ReCalcCells(vector<Extensive> const& extensives);
 };
 #endif //HDSIM_HPP

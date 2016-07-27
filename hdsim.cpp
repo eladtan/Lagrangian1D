@@ -79,7 +79,7 @@ namespace
 			rsvalues[index].pressure;
 		if (de<0)
 			return true;
-		if (dv*dv > 0.3*et)
+		if (dv*dv > 0.7*et)
 			return false;
 		else
 			return true;
@@ -107,6 +107,22 @@ namespace
 		}
 	}
 }
+
+void hdsim::ReCalcCells(vector<Extensive> const& extensive)
+{
+	size_t N = cells_.size();
+	for (size_t i = 0; i < N; ++i)
+	{
+		double vol = edges_[i + 1] - edges_[i];
+		cells_[i].density = extensive[i].mass / vol;
+		cells_[i].velocity = extensive[i].momentum / extensive[i].mass;
+		const double et = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum
+			/ extensive[i].mass) / extensive[i].mass;
+		cells_[i].pressure = eos_.de2p(cells_[i].density, et);
+		cells_[i].entropy = eos_.dp2s(cells_[i].density, cells_[i].pressure);
+	}
+}
+
 void hdsim::TimeAdvance2()
 {
 	double dt = GetTimeStep(cells_,edges_,eos_,cfl_,source_);
@@ -134,7 +150,6 @@ void hdsim::TimeAdvance2()
 
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_,time_);
 	GetRSvalues(interp_values_, rs_, rs_values_);
-//	std::cout << BoundarySolution_->ShouldCalc().second << std::endl;
 	if (BoundarySolution_ != 0)
 	{
 		pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
@@ -155,6 +170,11 @@ void hdsim::TimeAdvance2()
 	UpdateCells(extensives_, edges_, eos_, cells_,rs_values_);
 	time_ += 0.5*dt;
 	++cycle_;
+}
+
+void hdsim::SetCycle(size_t cyc)
+{
+	cycle_ = cyc;
 }
 
 double hdsim::GetTime() const
