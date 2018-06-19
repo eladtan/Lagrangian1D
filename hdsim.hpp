@@ -2,11 +2,13 @@
 #define HDSIM_HPP 1
 
 #include "Primitive.hpp"
-#include "MinMod.hpp"
+#include "Interpolation.hpp"
 #include "ideal_gas.hpp"
 #include "ExactRS.hpp"
 #include "Extensive.hpp"
 #include "SourceTerm.hpp"
+#include "Boundary.hpp"
+#include "Geometry.hpp"
 #include <vector>
 
 using namespace std;
@@ -17,7 +19,7 @@ private:
 	const double cfl_;
 	vector<Primitive> cells_;
 	vector<double> edges_;
-	MinMod const& interpolation_;
+	Interpolation const& interpolation_;
 	IdealGas const& eos_;
 	ExactRS const& rs_;
 	double time_;
@@ -26,12 +28,14 @@ private:
 	vector<RSsolution> rs_values_;
 	vector<Extensive> extensives_;
 	SourceTerm const& source_;
+	Geometry const& geo_;
 	BoundarySolution const* BoundarySolution_;
 public:
-	hdsim(double cfl,vector<Primitive> const& cells,vector<double> const& edges,MinMod const& interp,
-		IdealGas const& eos,ExactRS const& rs,SourceTerm const& source,BoundarySolution const* BS=0);
+	hdsim(double cfl,vector<Primitive> const& cells,vector<double> const& edges,Interpolation const& interp,
+		IdealGas const& eos,ExactRS const& rs,SourceTerm const& source,Geometry const& geo, BoundarySolution const* BS=0);
 	~hdsim();
 	void TimeAdvance2();
+	void TimeAdvance();
 	double GetTime()const;
 	vector<Primitive>const& GetCells()const;
 	vector<Primitive>& GetCells();

@@ -2,21 +2,24 @@
 #include <algorithm>
 #include <iostream>
 
-hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, MinMod const& interp,
-	IdealGas const& eos, ExactRS const& rs,SourceTerm const& source,BoundarySolution const* BS):cfl_(cfl),
+hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, Interpolation const& interp,
+	IdealGas const& eos, ExactRS const& rs,SourceTerm const& source, Geometry const& geo, 
+	BoundarySolution const* BS):cfl_(cfl),
 	cells_(cells),edges_(edges),interpolation_(interp),eos_(eos),rs_(rs),time_(0),cycle_(0),
-	extensives_(vector<Extensive>()),source_(source),BoundarySolution_(BS)
+	extensives_(vector<Extensive>()),source_(source),geo_(geo), BoundarySolution_(BS)
 {
 	size_t N = cells.size();
 	extensives_.resize(N);
 	for (size_t i = 0; i < N; ++i)
 	{
-		double vol = edges[i + 1] - edges[i];
+		double vol = geo_.GetVolume(edges,i);;
 		extensives_[i].mass = cells[i].density*vol;
 		extensives_[i].momentum = extensives_[i].mass*cells[i].velocity;
 		extensives_[i].energy = 0.5*extensives_[i].momentum*extensives_[i].momentum / extensives_[i].mass +
 			eos_.dp2e(cells[i].density, cells[i].pressure)*extensives_[i].mass;
 		extensives_[i].entropy = eos_.dp2s(cells[i].density, cells[i].pressure)*extensives_[i].mass;
+		cells_[i].energy = eos_.dp2e(cells_[i].density, cells_[i].pressure);
+		extensives_[i].et = cells_[i].energy*extensives_[i].mass;
 	}
 }
 
@@ -30,12 +33,19 @@ namespace
 		SourceTerm const&source)
 	{
 		double force_inverse_dt = source.GetInverseTimeStep(edges);
-		double dt = (edges[1] - edges[0]) / eos.dp2c(cells[0].density, cells[0].pressure);
+		double dt_1 = eos.dp2c(cells[0].density, cells[0].pressure) / (edges[1] - edges[0]);
+		dt_1 = std::max(dt_1, std::abs(cells[1].velocity - cells[0].velocity) / (edges[1] - edges[0]));
 		size_t N = cells.size();
-		for (size_t i = 1; i < N;++i)
-			dt = min(dt,(edges[i+1] - edges[i]) / eos.dp2c(cells[i].density, cells[i].pressure));
-		dt = max(1.0 / dt, force_inverse_dt);
-		return cfl/dt;
+		for (size_t i = 1; i < N-1; ++i)
+		{
+			double dv = std::max(std::abs(cells[i].velocity - cells[i + 1].velocity), 
+				std::abs(cells[i].velocity - cells[i - 1].velocity));
+			dt_1 = std::max(dt_1, std::max(dv, eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
+		}
+		dt_1 = std::max(dt_1, eos.dp2c(cells[N - 1].density, cells[N - 1].pressure) / (edges[N] - edges[N-1]));
+		dt_1 = std::max(dt_1, std::abs(cells[N - 1].velocity - cells[N - 2].velocity) / (edges[N] - edges[N-1]));
+		dt_1 = max(dt_1, force_inverse_dt);
+		return cfl/dt_1;
 	}
 
 	void GetRSvalues(vector<pair<Primitive,Primitive> > const& interp_values, ExactRS const&rs,
@@ -47,14 +57,20 @@ namespace
 			res[i] = rs.Solve(interp_values[i].first, interp_values[i].second);
 	}
 
-	void UpdateExtensives(vector<Extensive> &cells, vector<RSsolution> const& rs_values_,double dt)
+	void UpdateExtensives(vector<Extensive> &cells, vector<RSsolution> const& rs_values_,double dt,Geometry const& geo,
+		std::vector<double> const& edges)
 	{
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
 		{
-			cells[i].momentum -= (rs_values_[i + 1].pressure - rs_values_[i].pressure)*dt;
-			cells[i].energy -= (rs_values_[i + 1].pressure*rs_values_[i + 1].velocity - rs_values_[i].pressure*
-				rs_values_[i].velocity)*dt;
+			double v = cells[i].momentum / cells[i].mass;
+			double dP = (rs_values_[i + 1].pressure * geo.GetArea(edges[i+1]) - rs_values_[i].pressure 
+				* geo.GetArea(edges[i]));
+			cells[i].momentum -= dP*dt;
+			double dE = (rs_values_[i + 1].pressure*rs_values_[i + 1].velocity* geo.GetArea(edges[i + 1])
+				- rs_values_[i].pressure*rs_values_[i].velocity* geo.GetArea(edges[i]))*dt;
+			cells[i].energy -= dE;
+			cells[i].et -= dE - v*dP*dt;
 		}
 	}
 
@@ -70,32 +86,32 @@ namespace
 		double ek = cell.velocity*cell.velocity;
 		if (et < 0)
 			return true;
-		if (et > 0.01*ek)
+		if (et > 0.0001*ek)
 			return false;
 		double dv = rsvalues[index + 1].velocity - rsvalues[index].velocity;
 		if (dv > 0)
 			return true;
-		double de = rsvalues[index + 1].velocity*rsvalues[index+1].pressure - rsvalues[index].velocity*
+/*		double de = rsvalues[index + 1].velocity*rsvalues[index+1].pressure - rsvalues[index].velocity*
 			rsvalues[index].pressure;
 		if (de<0)
-			return true;
-		if (dv*dv > 0.7*et)
+			return true;*/
+		if (dv*dv > 0.0001*et)
 			return false;
 		else
 			return true;
 	}
 
 	void UpdateCells(vector<Extensive> &extensive, vector<double> const& edges, IdealGas const& eos,
-		vector<Primitive> &cells,vector<RSsolution> const& rsvalues)
+		vector<Primitive> &cells,vector<RSsolution> const& rsvalues, Geometry const& geo)
 	{
 		size_t N = cells.size();
 		for (size_t i = 0; i < N; ++i)
 		{
-			double vol = edges[i + 1] - edges[i];
+			double vol = geo.GetVolume(edges, i);
 			cells[i].density = extensive[i].mass / vol;
 			cells[i].velocity = extensive[i].momentum / extensive[i].mass;
-			const double et = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum
-				/ extensive[i].mass) / extensive[i].mass;
+			cells[i].energy = extensive[i].et / extensive[i].mass;
+			const double et = cells[i].energy;
 			if (ShouldUseEntropy(cells[i], rsvalues, i,et))
 				cells[i].pressure = eos.sd2p(extensive[i].entropy/extensive[i].mass, cells[i].density);
 			else
@@ -113,7 +129,7 @@ void hdsim::ReCalcCells(vector<Extensive> const& extensive)
 	size_t N = cells_.size();
 	for (size_t i = 0; i < N; ++i)
 	{
-		double vol = edges_[i + 1] - edges_[i];
+		double vol = geo_.GetVolume(edges_, i);
 		cells_[i].density = extensive[i].mass / vol;
 		cells_[i].velocity = extensive[i].momentum / extensive[i].mass;
 		const double et = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum
@@ -123,7 +139,8 @@ void hdsim::ReCalcCells(vector<Extensive> const& extensive)
 	}
 }
 
-void hdsim::TimeAdvance2()
+
+void hdsim::TimeAdvance()
 {
 	double dt = GetTimeStep(cells_,edges_,eos_,cfl_,source_);
 
@@ -139,16 +156,41 @@ void hdsim::TimeAdvance2()
 			rs_values_.back() = bvalues.second;
 	}
 
+	UpdateExtensives(extensives_, rs_values_, dt,geo_,edges_);
+	source_.CalcForce(edges_, cells_, time_, extensives_,dt);
+	UpdateEdges(edges_, rs_values_, dt);
+	UpdateCells(extensives_, edges_, eos_, cells_,rs_values_,geo_);
+	time_ += dt;
+	++cycle_;
+}
+
+void hdsim::TimeAdvance2()
+{
+	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_);
+	if (cycle_ == 0)
+		dt *= 0.005;
+	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
+	GetRSvalues(interp_values_, rs_, rs_values_);
+
+	if (BoundarySolution_ != 0)
+	{
+		pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
+		if (BoundarySolution_->ShouldCalc().first)
+			rs_values_[0] = bvalues.first;
+		if (BoundarySolution_->ShouldCalc().second)
+			rs_values_.back() = bvalues.second;
+	}
+
 	vector<Extensive> old_extensive(extensives_);
 	vector<double> old_edges(edges_);
 
-	UpdateExtensives(extensives_, rs_values_, 0.5*dt);
-	source_.CalcForce(edges_, cells_, time_, extensives_,0.5*dt);
+	UpdateExtensives(extensives_, rs_values_, 0.5*dt,geo_,edges_);
+	source_.CalcForce(edges_, cells_, time_, extensives_, 0.5*dt);
 	UpdateEdges(edges_, rs_values_, 0.5*dt);
-	UpdateCells(extensives_, edges_, eos_, cells_,rs_values_);
+	UpdateCells(extensives_, edges_, eos_, cells_, rs_values_,geo_);
 	time_ += 0.5*dt;
 
-	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_,time_);
+	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	GetRSvalues(interp_values_, rs_, rs_values_);
 	if (BoundarySolution_ != 0)
 	{
@@ -164,13 +206,14 @@ void hdsim::TimeAdvance2()
 
 	extensives_ = old_extensive;
 	edges_ = old_edges;
-	UpdateExtensives(extensives_, rs_values_, dt);
-	source_.CalcForce(edges_, cells_, time_, extensives_,dt);
+	UpdateExtensives(extensives_, rs_values_, dt,geo_,edges_);
+	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
 	UpdateEdges(edges_, rs_values_, dt);
-	UpdateCells(extensives_, edges_, eos_, cells_,rs_values_);
+	UpdateCells(extensives_, edges_, eos_, cells_, rs_values_,geo_);
 	time_ += 0.5*dt;
 	++cycle_;
 }
+
 
 void hdsim::SetCycle(size_t cyc)
 {

@@ -1,4 +1,5 @@
 #include "hdf_util.hpp"
+#include <cassert>>
 
 using namespace H5;
 
@@ -81,7 +82,8 @@ namespace
 }
 
 
-void write_snapshot_to_hdf5(hdsim const& sim, string const& fname)
+void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<vector<double> > appendices,
+	std::vector<std::string> a_names)
 {
 	H5File file(H5std_string(fname), H5F_ACC_TRUNC);
 	Group geometry = file.createGroup("/geometry");
@@ -123,6 +125,15 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname)
 		(hydrodynamic,
 			velocity,
 			"velocity");
+	// appendices
+	if (a_names.size() > 0)
+	{
+		Group Gappend = file.createGroup("/appendices");
+		assert(a_names.size() == appendices.size());
+		size_t Nappend = appendices.size();
+		for (size_t i = 0; i < Nappend; ++i)
+			write_std_vector_to_hdf5(Gappend, appendices[i], a_names[i]);
+	}
 }
 
 Snapshot read_hdf5_snapshot

@@ -7,6 +7,7 @@ public:
 	double momentum;
 	double energy;
 	double entropy;
+	double et;
 
 	Extensive();
 	~Extensive();

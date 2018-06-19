@@ -68,6 +68,49 @@ namespace
 			res += dCalcFrarefraction(right, p, gamma);
 		return res;
 	}
+
+	double Bisection(Primitive const& left, Primitive const& right,double gamma,
+		double max_scale,double minp,double guess)
+	{
+		/*
+		double a = std::min(left.pressure, right.pressure)*1e-10;
+		double b = (left.pressure + right.pressure + left.density*left.velocity*left.velocity +
+			right.density*right.velocity*right.velocity)*10;*/
+		double a = guess*0.2;
+		double b = guess * 5;
+		double c = (a + b)*0.5;
+		double dp = 0;
+		double valuec = GetValue(left, right, c , gamma);
+		double valuea = GetValue(left, right, a, gamma);
+		if (valuea*valuec > 0)
+			throw("Same sign in RS");
+		int counter = 0;
+		while (((b-a) > 1e-10*(minp + c)) || (std::abs(valuec) > 1e-10*max_scale))
+		{
+			c = (a + b)*0.5;
+			valuec = GetValue(left, right, c, gamma);
+			if (valuec*valuea > 0)
+			{
+				a = c;
+				valuea = valuec;
+			}
+			else
+				b = c;
+			++counter;
+			if (counter > 300)
+			{
+				UniversalError eo("Too many iterations in RS");
+				eo.AddEntry("Left density", left.density);
+				eo.AddEntry("Left pressure", left.pressure);
+				eo.AddEntry("Left velocity", left.velocity);
+				eo.AddEntry("Right density", right.density);
+				eo.AddEntry("Right pressure", right.pressure);
+				eo.AddEntry("Right velocity", right.velocity);
+				throw eo;
+			}
+		}
+		return c;
+	}
 }
 
 ExactRS::ExactRS(double gamma):gamma_(gamma)
@@ -78,7 +121,7 @@ ExactRS::~ExactRS()
 
 RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 {
-	const double eps = 1e-7;
+	const double eps = 1e-10;
 	// Is there a vaccum?
 	double dv = right.velocity - left.velocity;
 	double soundspeeds = 2 * (sqrt(gamma_*left.pressure / left.density) + sqrt(gamma_*right.pressure / right.density)) / (gamma_ - 1);
@@ -98,29 +141,24 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 	}
 	double value = GetValue(left, right, res.pressure, gamma_);
 	double Cs = std::max(sqrt(gamma_*left.pressure / left.density), sqrt(gamma_*right.pressure / right.density));
+	double max_scale = std::max(Cs, std::max(std::abs(left.velocity), std::abs(right.velocity)));
 	double dp = 0;
+	double minp = std::min(left.pressure, right.pressure);
 	double p = res.pressure;
 	size_t counter = 0;
-	double minp = std::min(left.pressure, right.pressure);
-	do
+	while ((abs(dp) > eps*(minp + res.pressure)) || (std::abs(value) > eps*max_scale))
 	{
 		p = res.pressure;
 		dp = value / GetdValue(left, right, res.pressure, gamma_);
-		res.pressure -= std::max(std::min(0.5*dp,res.pressure*0.1),-0.1*res.pressure);
+		res.pressure -= std::max(std::min(0.5*dp,res.pressure*0.5),-0.5*res.pressure);
 		value = GetValue(left, right, res.pressure, gamma_);
 		++counter;
-		if (counter > 200)
+		if (counter > 40)
 		{
-			UniversalError eo("Too many iterations in RS");
-			eo.AddEntry("Left density", left.density);
-			eo.AddEntry("Left pressure", left.pressure);
-			eo.AddEntry("Left velocity", left.velocity);
-			eo.AddEntry("Right density", right.density);
-			eo.AddEntry("Right pressure", right.pressure);
-			eo.AddEntry("Right velocity", right.velocity);
-			throw eo;
+			res.pressure = Bisection(left, right, gamma_, max_scale, minp,res.pressure);
+			break;
 		}
-	} while (((abs(dp) > eps*(p+res.pressure))&&(dv*eps>value))&&res.pressure>eps*minp);
+	} 
 	double fr = (res.pressure > right.pressure) ? CalcFshock(right, res.pressure, gamma_) : CalcFrarefraction(
 		right, res.pressure, gamma_);
 	double fl = (res.pressure > left.pressure) ? CalcFshock(left, res.pressure, gamma_) : CalcFrarefraction(

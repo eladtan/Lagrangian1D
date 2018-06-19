@@ -46,7 +46,29 @@ public:
 		edges, size_t index,double time)const;
 };
 
+class Ratchet : public Boundary
+{
+public:
+	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
+		edges, size_t index, double time)const;
+};
+
+class RigidWall1 : public Boundary
+{
+public:
+	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
+		edges, size_t index, double time)const;
+};
+
+
 class FreeFlow : public Boundary
+{
+public:
+	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
+		edges, size_t index, double time)const;
+};
+
+class FreeFlow2 : public Boundary
 {
 public:
 	vector<Primitive> GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&

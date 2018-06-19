@@ -8,12 +8,13 @@ public:
 	double pressure;
 	double velocity;
 	double entropy;
+	double energy;
 
 	Primitive();
 
 	Primitive(Primitive const& other);
 
-	Primitive(double Density, double Pressure, double Velocity,double Entropy);
+	Primitive(double Density, double Pressure, double Velocity,double Entropy,double Energy);
 
 	Primitive operator-(Primitive const& other)const;
 

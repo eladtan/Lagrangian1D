@@ -104,6 +104,8 @@ Snapshot read_hdf5_snapshot(const string& fname);
 \param sim The hdsim class of the simulation
 \param fname The name of the output file
 \param appendices Additional data to be written to snapshot
+\param a_names The name sof the appendices
 */
-void write_snapshot_to_hdf5(hdsim const& sim, string const& fname);
+void write_snapshot_to_hdf5(hdsim const& sim, string const& fname,std::vector<vector<double> > appendices = std::vector<vector<double> >(),
+	std::vector<std::string> a_names = std::vector<std::string>());
 #endif // HDF_UTIL

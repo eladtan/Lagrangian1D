@@ -1,6 +1,7 @@
 #define _USE_MATH_DEFINES
 #include "hdsim.hpp"
 #include "hdf_util.hpp"
+#include "MinMod.hpp"
 #include <iostream>
 #include <fstream>
 #include <cassert>
@@ -11,6 +12,7 @@
 unsigned int oldd = 0;
 unsigned int fp_control_state = _controlfp_s(&oldd,_EM_INEXACT, _MCW_EM);
 
+//#define restart
 
 namespace
 {
@@ -199,7 +201,7 @@ namespace
 				// Do Mbh
 				double R = 2 * Rp_ / (1 + cos(f_));
 				double x = 0.5*(edges[i + 1] + edges[i]);
-				acc -= Mbh_*x*pow(sqrt(R*R + x*x), -3);
+				acc -= 0*Mbh_*x*pow(sqrt(R*R + x*x), -3);
 				total_acc_[i] = acc;
 				extensives[i].momentum += extensives[i].mass*acc*dt;
 				extensives[i].energy += extensives[i].mass*acc*dt*cells[i].velocity;
@@ -234,6 +236,21 @@ namespace
 		double sg = read_number("c:/selfgravity.txt");
 		selfgravity = sg > 0.5;
 	}
+
+	void DragForce(hdsim &sim)
+	{
+		vector<Extensive> &extensive = sim.GetExtensives();
+		vector<Primitive> &cells = sim.GetCells();
+		size_t N = cells.size();
+		for (size_t i = 0; i < N; ++i)
+		{
+			cells[i].velocity *= 0.99999;
+			double dp = 0.01*extensive[i].momentum;
+			double p = extensive[i].momentum;
+			extensive[i].momentum *= 0.99999;
+			extensive[i].energy =extensive[i].et + 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass;
+		}
+	}
 }
 
 int main(void)
@@ -244,36 +261,58 @@ int main(void)
 	double gamma = 4./3.;
 	double beta = 8;
 	ReadInput(beta, star_gamma, gamma, selfgravity);
-	double cfl = 0.1;
+	double cfl = 0.2;
+	if (beta < 7)
+		cfl = 0.5;
+	else
+		if (beta < 15)
+			cfl = 0.3;
 	ExactRS rs(gamma);
 	IdealGas eos(gamma);
 	RigidWall bl;
-	ConstantPrimitive br(Primitive(1e-25, 1e-26, 0, eos.dp2s(1e-25, 1e-26)));
+	//ConstantPrimitive br(Primitive(1e-25, 1e-26, 0, eos.dp2s(1e-25, 1e-26)));
+	//Ratchet br;
+	RigidWall br;
 	SeveralBoundary boundary(bl, br);
 	MinMod interp(boundary);
-	size_t Np = 512;
 	double R = 1;
 	double M = 1;
 	double Mbh = 1e6;
 	double Rt = R*pow(Mbh / M, 1.0 / 3.0);
 	double Rp = Rt / beta;
+#ifdef restart
+	Snapshot snap = read_hdf5_snapshot("c:/TidalData/gamma43/gas43/sg/beta129/tide_114.h5");
+	vector<double> edges = snap.edges;
+	vector<Primitive> cells = snap.cells;
+	int counter = 115;
+#else
+	int counter = 0;
+	size_t Np = 512*4;
+	if (beta > 30)
+		Np = static_cast<size_t>(Np * beta / 30);
 	double Nemden = 1 / (star_gamma - 1);
 	double fstart = -acos(2 / beta - 1);
 	double tstart = sqrt(2 * pow(Rt / beta, 3) / Mbh)*tan(fstart / 2)*(3 + pow(tan(fstart / 2), 2)) / 3;
 	vector<double> edges = getedges(Np, R);
-	vector<Primitive> cells = calc_init(edges, M, R, Nemden,star_gamma);
+	vector<Primitive> cells = calc_init(edges, M, R, Nemden, star_gamma);
+#endif
+
 	Gravity source(M, R, Mbh, Rp,selfgravity,star_gamma,edges);
 	hdsim sim(cfl, cells, edges, interp, eos, rs,source);
+#ifdef restart
+	sim.SetTime(snap.time);
+	sim.SetCycle(snap.cycle);
+#else
 	sim.SetTime(tstart);
+#endif
 
 	double dt = 0.05;
-	double initd = cells[0].density;
+	double initd =  cells[0].density;
 	double maxd = cells[0].density;
 	double last = sim.GetTime();
 	double mind = maxd;
-	int counter = 0;
-
-	while (sim.GetCells()[0].density> max(0.25*initd,0.1*maxd) && sim.GetTime()<0.6)
+	initd *= selfgravity ? 1 : 0.8;
+	while (sim.GetCells()[0].density> max(0.3*initd,0.2*maxd) && sim.GetTime()<5.52)
 	{
 		if (sim.GetCycle() % 500 == 0)
 			write_snapshot_to_hdf5(sim, "c:/sim_data/temp.h5");
@@ -318,6 +357,7 @@ int main(void)
 			mind = sim.GetCells()[0].density;
 		}
 		sim.TimeAdvance2();
+		DragForce(sim);
 	}
 //	write_snapshot_to_hdf5(sim, "c:/sim_data/snap1d.h5");
 	return 0;

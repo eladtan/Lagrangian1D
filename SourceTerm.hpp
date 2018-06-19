@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "Primitive.hpp"
 #include "Extensive.hpp"
+#include "Geometry.hpp"
 #include <vector>
 
 using namespace std;
@@ -22,9 +23,31 @@ public:
 
 class ZeroForce : public SourceTerm
 {
+
 	void CalcForce(vector<double> const& /*edges*/, vector<Primitive> const& cells, double /*time*/,
 		vector<Extensive> & extensives,double /*dt*/)const
 	{
+		return;
+	}
+};
+
+class SphericalForce : public SourceTerm
+{
+private:
+	Spherical geo_;
+public:
+	SphericalForce() :geo_(Spherical()) {}
+
+	void CalcForce(vector<double> const& edges, vector<Primitive> const& cells, double /*time*/,
+		vector<Extensive> & extensives, double dt)const
+	{
+		size_t Ncells = cells.size();
+		for (size_t i = 0; i < Ncells; ++i)
+		{
+			double dP = geo_.GetVolume(edges, i) * 2 * cells[i].pressure * dt / (0.5*(edges[i + 1] + edges[i]));
+			extensives[i].momentum += dP;
+			extensives[i].et -= dP*cells[i].velocity;
+		}
 		return;
 	}
 };

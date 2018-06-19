@@ -58,27 +58,139 @@ vector<Primitive> RigidWall::GetBoundaryValues(vector<Primitive> const & cells,
 	return res;
 }
 
+vector<Primitive> Ratchet::GetBoundaryValues(vector<Primitive> const& cells, vector<double> const&
+		edges, size_t index, double time)const
+{
+	if (index == 0)
+		throw("Not implemented");
+	if (cells.back().velocity < 0)
+	{
+		RigidWall br;
+		return br.GetBoundaryValues(cells, edges, index, time);
+	}
+	else
+	{
+		FreeFlow br;
+		return br.GetBoundaryValues(cells, edges, index, time);
+	}
+}
+
+
+vector<Primitive> RigidWall1::GetBoundaryValues(vector<Primitive> const & cells,
+	vector<double> const & edges, size_t index, double time) const
+{
+	vector<Primitive> res(3);
+	if (index == 0)
+	{
+		res[1] = cells[0];
+		res[0] = res[1];
+		res[0].velocity = -res[1].velocity;
+		res[2] = cells[0];
+	}
+	else
+	{
+		size_t N = edges.size();
+		res[1] = cells[N - 2] ;
+		res[2] = res[1];
+		res[2].velocity = -res[1].velocity;
+		res[0] = cells[N - 2];
+	}
+	return res;
+}
+
+
 vector<Primitive> FreeFlow::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges,
 	size_t index, double time) const
 {
 	vector<Primitive> res(3);
 	if (index == 0)
 	{
-		Primitive slope = (cells[1] - cells[0]) / (0.5*(edges[2] - edges[0]));
-		res[1] = cells[0] - slope*(0.5*(edges[1] - edges[0]));
+		res[1] = cells[0];
 		res[0] = res[1];
-		res[2] = cells[0] + slope*(0.5*(edges[1] - edges[0]));
+		res[2] = cells[0];
 	}
 	else
 	{
 		size_t N = edges.size();
-		Primitive slope = (cells[N - 2] - cells[N - 3]) / (0.5*(edges[N - 1] - edges[N - 3]));
-		res[1] = cells[N - 2] + slope*(0.5*(edges[N - 1] - edges[N - 2]));
+		res[1] = cells[N - 2];
 		res[2] = res[1];
-		res[0] = cells[N - 2] - slope*(0.5*(edges[N - 1] - edges[N - 2]));
+		res[0] = cells[N - 2];
 	}
 	return res;
 }
+
+vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges,
+	size_t index, double time) const
+{
+	vector<Primitive> res(3);
+	Primitive slope;
+	if (index == 0)
+	{
+		size_t i = 1;
+		const Primitive sl = (cells[i] - cells[i - 1]) / (0.5*(edges[i + 1] - edges[i-1]));
+		const Primitive sr = (cells[i+1] - cells[i]) / (0.5*(edges[i + 2] - edges[i]));
+		const Primitive sc = (cells[i+1] - cells[i - 1]) / (0.5*(edges[i + 2]+edges[i + 1] - edges[i - 1]
+			- edges[i]));
+		if (sl.density*sr.density < 0)
+			slope.density = 0;
+		else
+			slope.density = std::min(std::fabs(sl.density), std::min(std::fabs(sr.density), std::fabs(sc.density))) * (sl.density > 0 ?
+				1 : -1);
+		if (sl.pressure*sr.pressure < 0)
+			slope.pressure = 0;
+		else
+			slope.pressure = std::min(std::fabs(sl.pressure), std::min(std::fabs(sr.pressure), std::fabs(sc.pressure))) * (sl.pressure > 0 ?
+				1 : -1);
+		if (sl.velocity*sr.velocity < 0)
+			slope.velocity = 0;
+		else
+			slope.velocity = std::min(std::fabs(sl.velocity), std::min(std::fabs(sr.velocity), std::fabs(sc.velocity))) * (sl.velocity > 0 ?
+				1 : -1);
+		double dx1 = edges[2] - edges[1];
+		double dx0 = edges[1] - edges[0];
+		slope.density = 2 * (cells[1].density - slope.density*0.5*dx1 - cells[0].density) / dx0;
+		slope.pressure = 2 * (cells[1].pressure - slope.pressure*0.5*dx1 - cells[0].pressure) / dx0;
+		slope.velocity = 2 * (cells[1].velocity - slope.velocity*0.5*dx1 - cells[0].velocity) / dx0;
+
+		res[1] = cells[0] - slope*0.5*dx0;
+		res[0] = res[1];
+		res[2] = cells[0] + slope*0.5*dx0;
+	}
+	else
+	{
+		size_t i = edges.size()-3;
+		const Primitive sl = (cells[i] - cells[i - 1]) / (0.5*(edges[i + 1] - edges[i - 1]));
+		const Primitive sr = (cells[i + 1] - cells[i]) / (0.5*(edges[i + 2] - edges[i]));
+		const Primitive sc = (cells[i + 1] - cells[i - 1]) / (0.5*(edges[i + 2] + edges[i + 1] - edges[i - 1]
+			- edges[i]));
+		if (sl.density*sr.density < 0)
+			slope.density = 0;
+		else
+			slope.density = std::min(std::fabs(sl.density), std::min(std::fabs(sr.density), std::fabs(sc.density))) * (sl.density > 0 ?
+				1 : -1);
+		if (sl.pressure*sr.pressure < 0)
+			slope.pressure = 0;
+		else
+			slope.pressure = std::min(std::fabs(sl.pressure), std::min(std::fabs(sr.pressure), std::fabs(sc.pressure))) * (sl.pressure > 0 ?
+				1 : -1);
+		if (sl.velocity*sr.velocity < 0)
+			slope.velocity = 0;
+		else
+			slope.velocity = std::min(std::fabs(sl.velocity), std::min(std::fabs(sr.velocity), std::fabs(sc.velocity))) * (sl.velocity > 0 ?
+				1 : -1);
+		double dxl = edges[i+1] - edges[i];
+		double dxr = edges[i+2] - edges[i+1];
+		slope.density = 2 * (cells[i].density + slope.density*0.5*dxl - cells[i].density) / dxr;
+		slope.pressure = 2 * (cells[i].pressure + slope.pressure*0.5*dxl - cells[i].pressure) / dxr;
+		slope.velocity = 2 * (cells[i].velocity + slope.velocity*0.5*dxl - cells[i].velocity) / dxr;
+
+		res[0] = cells[i + 1] - slope*0.5*dxr;
+		res[1] = cells[i + 1] + slope*0.5*dxr;
+		res[2] = res[1];
+	}
+	return res;
+}
+
 
 vector<Primitive> Periodic::GetBoundaryValues(vector<Primitive> const & cells, vector<double> const & edges, size_t index,
 	double time) const
