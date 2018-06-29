@@ -30,20 +30,17 @@ hdsim::~hdsim()
 namespace
 {
 	double GetTimeStep(vector<Primitive> const& cells, vector<double> const& edges, IdealGas const& eos, double cfl,
-		SourceTerm const&source)
+		SourceTerm const&source,std::vector<RSsolution> const& rs_values)
 	{
 		double force_inverse_dt = source.GetInverseTimeStep(edges);
 		double dt_1 = eos.dp2c(cells[0].density, cells[0].pressure) / (edges[1] - edges[0]);
-		dt_1 = std::max(dt_1, std::abs(cells[1].velocity - cells[0].velocity) / (edges[1] - edges[0]));
 		size_t N = cells.size();
 		for (size_t i = 1; i < N-1; ++i)
 		{
-			double dv = std::max(std::abs(cells[i].velocity - cells[i + 1].velocity), 
-				std::abs(cells[i].velocity - cells[i - 1].velocity));
+			double dv = -(rs_values[i + 1].velocity - rs_values[i].velocity);
 			dt_1 = std::max(dt_1, std::max(dv, eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
 		}
 		dt_1 = std::max(dt_1, eos.dp2c(cells[N - 1].density, cells[N - 1].pressure) / (edges[N] - edges[N-1]));
-		dt_1 = std::max(dt_1, std::abs(cells[N - 1].velocity - cells[N - 2].velocity) / (edges[N] - edges[N-1]));
 		dt_1 = max(dt_1, force_inverse_dt);
 		return cfl/dt_1;
 	}
@@ -83,14 +80,14 @@ namespace
 
 	bool ShouldUseEntropy(Primitive const& cell, vector<RSsolution> const& rsvalues, size_t index,double et)
 	{
+		double dv = rsvalues[index + 1].velocity - rsvalues[index].velocity;
+		if (dv > 0)
+			return true;
 		double ek = cell.velocity*cell.velocity;
 		if (et < 0)
 			return true;
 		if (et > 0.0001*ek)
 			return false;
-		double dv = rsvalues[index + 1].velocity - rsvalues[index].velocity;
-		if (dv > 0)
-			return true;
 /*		double de = rsvalues[index + 1].velocity*rsvalues[index+1].pressure - rsvalues[index].velocity*
 			rsvalues[index].pressure;
 		if (de<0)
@@ -111,13 +108,14 @@ namespace
 			cells[i].density = extensive[i].mass / vol;
 			cells[i].velocity = extensive[i].momentum / extensive[i].mass;
 			cells[i].energy = extensive[i].et / extensive[i].mass;
-			const double et = cells[i].energy;
+			double et = cells[i].energy;
 			if (ShouldUseEntropy(cells[i], rsvalues, i,et))
 				cells[i].pressure = eos.sd2p(extensive[i].entropy/extensive[i].mass, cells[i].density);
 			else
 				cells[i].pressure = eos.de2p(cells[i].density, et);
-			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass +
-				extensive[i].mass*eos.dp2e(cells[i].density, cells[i].pressure);
+			et = extensive[i].mass*eos.dp2e(cells[i].density, cells[i].pressure);
+			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass +	et;
+			extensive[i].et = et;
 			cells[i].entropy = eos.dp2s(cells[i].density, cells[i].pressure);
 			extensive[i].entropy = cells[i].entropy*extensive[i].mass;
 		}
@@ -132,8 +130,7 @@ void hdsim::ReCalcCells(vector<Extensive> const& extensive)
 		double vol = geo_.GetVolume(edges_, i);
 		cells_[i].density = extensive[i].mass / vol;
 		cells_[i].velocity = extensive[i].momentum / extensive[i].mass;
-		const double et = (extensive[i].energy - 0.5*extensive[i].momentum*extensive[i].momentum
-			/ extensive[i].mass) / extensive[i].mass;
+		const double et = extensive[i].et / extensive[i].mass;
 		cells_[i].pressure = eos_.de2p(cells_[i].density, et);
 		cells_[i].entropy = eos_.dp2s(cells_[i].density, cells_[i].pressure);
 	}
@@ -142,10 +139,10 @@ void hdsim::ReCalcCells(vector<Extensive> const& extensive)
 
 void hdsim::TimeAdvance()
 {
-	double dt = GetTimeStep(cells_,edges_,eos_,cfl_,source_);
-
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_,time_);
 	GetRSvalues(interp_values_, rs_, rs_values_);
+	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_,rs_values_);
+
 
 	if (BoundarySolution_ != 0)
 	{
@@ -166,9 +163,6 @@ void hdsim::TimeAdvance()
 
 void hdsim::TimeAdvance2()
 {
-	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_);
-	if (cycle_ == 0)
-		dt *= 0.005;
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	GetRSvalues(interp_values_, rs_, rs_values_);
 
@@ -180,6 +174,9 @@ void hdsim::TimeAdvance2()
 		if (BoundarySolution_->ShouldCalc().second)
 			rs_values_.back() = bvalues.second;
 	}
+	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_,rs_values_);
+	if (cycle_ == 0)
+		dt *= 0.005;
 
 	vector<Extensive> old_extensive(extensives_);
 	vector<double> old_edges(edges_);

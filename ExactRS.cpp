@@ -2,6 +2,7 @@
 #include "universal_error.hpp"
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 namespace
 {
@@ -129,7 +130,7 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 	{
 		RSsolution res;
 		res.pressure = 0;
-		res.velocity = 0;
+		res.velocity = 0.5*(right.velocity+left.velocity);
 		return res;
 	}
 	RSsolution res = GetFirstGuess(left, right,gamma_);
