@@ -9,12 +9,13 @@ public:
 	double velocity;
 	double entropy;
 	double energy;
+	unsigned char sticker;
 
 	Primitive();
 
 	Primitive(Primitive const& other);
 
-	Primitive(double Density, double Pressure, double Velocity,double Entropy,double Energy);
+	Primitive(double Density, double Pressure, double Velocity,double Entropy,double Energy,unsigned char Sticker);
 
 	Primitive operator-(Primitive const& other)const;
 

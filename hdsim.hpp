@@ -29,10 +29,14 @@ private:
 	vector<Extensive> extensives_;
 	SourceTerm const& source_;
 	Geometry const& geo_;
+	const double AMR_ratio_;
 	BoundarySolution const* BoundarySolution_;
+	double dt_suggest_;
+	void AMR(void);
 public:
 	hdsim(double cfl,vector<Primitive> const& cells,vector<double> const& edges,Interpolation const& interp,
-		IdealGas const& eos,ExactRS const& rs,SourceTerm const& source,Geometry const& geo, BoundarySolution const* BS=0);
+		IdealGas const& eos,ExactRS const& rs,SourceTerm const& source,Geometry const& geo, const double AMR_ratio = 0, 
+		BoundarySolution const* BS=0);
 	~hdsim();
 	void TimeAdvance2();
 	void TimeAdvance();
@@ -42,9 +46,12 @@ public:
 	vector<Extensive>const& GetExtensives()const;
 	vector<Extensive>& GetExtensives();
 	vector<double> const& GetEdges()const;
+	vector<double>& GetEdges();
 	size_t GetCycle()const;
 	void SetTime(double t);
 	void SetCycle(size_t cyc);
-	void ReCalcCells(vector<Extensive> const& extensives);
+	void ReCalcCells(vector<Extensive> & extensives);
+	void ReCalcExtensives(vector<Primitive> const& cells);
+	void SuggestTimeStep(double dt);
 };
 #endif //HDSIM_HPP

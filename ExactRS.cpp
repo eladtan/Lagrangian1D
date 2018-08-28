@@ -3,42 +3,79 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#if defined(_MSC_VER)
+/* Microsoft C/C++-compatible compiler */
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
 
 namespace
 {
+	double fastsqrt(double x)
+	{
+		if (x<FLT_MIN || x > FLT_MAX)
+			return std::sqrt(x);
+		double res = static_cast<double>(_mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(static_cast<float>(x)))));
+		return x*res*(1.5 - 0.5*res*res*x);
+	}
+
 	double CalcFrarefraction(Primitive const& cell, double p,double gamma)
 	{
-		double cs = sqrt(gamma*cell.pressure/ cell.density);
-		return 2 * cs*(pow(p / cell.pressure, (gamma - 1) / (2 * gamma)) - 1) / (gamma - 1);
+		double cs = fastsqrt(gamma*cell.pressure/ cell.density);
+		return 2 * cs*(std::pow(p / cell.pressure, (gamma - 1) / (2 * gamma)) - 1) / (gamma - 1);
 	}
 
 	double CalcFshock(Primitive const& cell, double p,double gamma)
 	{
 		double A = 2 / ((gamma + 1) *cell.density);
 		double B = (gamma - 1)*cell.pressure / (gamma + 1);
-		return (p - cell.pressure)*sqrt(A / (p + B));
-	}
-
-	double dCalcFrarefraction(Primitive const& cell, double p, double gamma)
-	{
-		return (p + gamma*p + 3 * gamma*cell.pressure - cell.pressure)*pow(p + gamma*p - cell.pressure + 
-			gamma*cell.pressure, -1.5) / sqrt(2 * cell.density);
+		return (p - cell.pressure)*fastsqrt(A / (p + B));
 	}
 
 	double dCalcFshock(Primitive const& cell, double p, double gamma)
 	{
-		double cs = sqrt(gamma*cell.pressure/ cell.density);
-		return pow(cell.pressure / p, (gamma + 1) / (2 * gamma)) / (cell.density*cs);
+		double A = 2 / ((gamma + 1)*cell.density);
+		double B = (gamma - 1)*cell.pressure / (gamma + 1);
+		return fastsqrt(A / (B + p))*(1 - (p - cell.pressure) / (2 * (B + p)));
+	}
+
+	double dCalcFrarefraction(Primitive const& cell, double p, double gamma)
+	{	
+		double cs = fastsqrt(gamma*cell.pressure/ cell.density);
+		return std::pow(cell.pressure / p, (gamma + 1) / (2 * gamma)) / (cell.density*cs);
 	}
 
 	RSsolution GetFirstGuess(Primitive const & left, Primitive const & right,double gamma)
 	{
+		double Pmax = std::max(left.pressure, right.pressure);
+		double Pmin = std::min(left.pressure, right.pressure);
+		double Q = Pmax / Pmin;
+		double csl = fastsqrt(gamma*left.pressure / left.density);
+		double csr = fastsqrt(gamma*right.pressure / right.density);
 		RSsolution res;
-		double csl = sqrt(gamma*left.pressure / left.density);
-		double csr = sqrt(gamma*right.pressure / right.density);
-		res.pressure = pow((csl+csr-0.5*(gamma-1)*(right.velocity-left.velocity))/(csl*pow(
-			left.pressure,(-gamma+1)/(2*gamma))+ csr*pow(
-				right.pressure, (-gamma + 1) / (2 * gamma))),2*gamma/(gamma-1));
+		// First try Ppvrs
+		res.pressure = 0.5*(Pmax + Pmin) + 0.125*(left.velocity - right.velocity)*(left.density + right.density)*
+			(csl + csr);
+		if (Q<2 && res.pressure>=Pmin && res.pressure <= Pmax)
+			return res;
+		if (res.pressure <= Pmin) // Use Two rarefactions
+		{
+			double z = (gamma - 1) / (2 * gamma);
+			res.pressure = std::pow((csl + csr - (gamma - 1)*(right.velocity - left.velocity)*0.5) / (csl*
+				std::pow(left.pressure, -z)	+ csr*std::pow(right.pressure, -z)), 1 / z);
+		}
+		else // Two shocks
+		{
+			double Al = 2 / ((gamma + 1)*left.density);
+			double Ar = 2 / ((gamma + 1)*right.density);
+			double Bl = (gamma - 1)*left.pressure / (gamma + 1);
+			double Br = (gamma - 1)*right.pressure / (gamma + 1);
+			res.pressure = std::max(0.0, res.pressure);
+			double gl = fastsqrt(Al / (res.pressure + Bl));
+			double gr = fastsqrt(Ar / (res.pressure + Br));
+			res.pressure = (gl*left.pressure + gr*right.pressure + left.velocity - right.velocity) / (gl + gr);
+		}
 		return res;
 	}
 
@@ -79,14 +116,14 @@ namespace
 			right.density*right.velocity*right.velocity)*10;*/
 		double a = guess*0.2;
 		double b = guess * 5;
-		double c = (a + b)*0.5;
+		double c = guess;
 		double dp = 0;
-		double valuec = GetValue(left, right, c , gamma);
+		double valuec = GetValue(left, right, b , gamma);
 		double valuea = GetValue(left, right, a, gamma);
 		if (valuea*valuec > 0)
 			throw("Same sign in RS");
 		int counter = 0;
-		while (((b-a) > 1e-10*(minp + c)) || (std::abs(valuec) > 1e-10*max_scale))
+		while (((b-a) > 1e-10*(minp + c)) || (std::abs(valuec) > 1e-7*max_scale))
 		{
 			c = (a + b)*0.5;
 			valuec = GetValue(left, right, c, gamma);
@@ -122,10 +159,10 @@ ExactRS::~ExactRS()
 
 RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 {
-	const double eps = 1e-10;
+	const double eps = 1e-7;
 	// Is there a vaccum?
 	double dv = right.velocity - left.velocity;
-	double soundspeeds = 2 * (sqrt(gamma_*left.pressure / left.density) + sqrt(gamma_*right.pressure / right.density)) / (gamma_ - 1);
+	double soundspeeds = 2 * (fastsqrt(gamma_*left.pressure / left.density) + fastsqrt(gamma_*right.pressure / right.density)) / (gamma_ - 1);
 	if (dv >= soundspeeds)
 	{
 		RSsolution res;
@@ -141,7 +178,7 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 		return res;
 	}
 	double value = GetValue(left, right, res.pressure, gamma_);
-	double Cs = std::max(sqrt(gamma_*left.pressure / left.density), sqrt(gamma_*right.pressure / right.density));
+	double Cs = std::max(fastsqrt(gamma_*left.pressure / left.density), fastsqrt(gamma_*right.pressure / right.density));
 	double max_scale = std::max(Cs, std::max(std::abs(left.velocity), std::abs(right.velocity)));
 	double dp = 0;
 	double minp = std::min(left.pressure, right.pressure);
@@ -151,10 +188,10 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 	{
 		p = res.pressure;
 		dp = value / GetdValue(left, right, res.pressure, gamma_);
-		res.pressure -= std::max(std::min(0.5*dp,res.pressure*0.5),-0.5*res.pressure);
+		res.pressure -= std::max(std::min(dp,res.pressure*0.5),-0.5*res.pressure);
 		value = GetValue(left, right, res.pressure, gamma_);
 		++counter;
-		if (counter > 40)
+		if (counter > 10)
 		{
 			res.pressure = Bisection(left, right, gamma_, max_scale, minp,res.pressure);
 			break;

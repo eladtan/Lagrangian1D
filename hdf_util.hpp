@@ -65,6 +65,16 @@ void write_std_vector_to_hdf5
 	const vector<int>& data,
 	const string& caption);
 
+/*! \brief Writes char data to hdf5
+\param file Either an actual file or a group within a file
+\param data Data to be written
+\param caption Name of dataset
+*/
+void write_std_vector_to_hdf5
+(const CommonFG& file,
+	const vector<unsigned char>& data,
+	const string& caption);
+
 
 //! \brief Container for snapshot data
 class Snapshot

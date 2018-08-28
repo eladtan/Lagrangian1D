@@ -19,6 +19,21 @@ void write_std_vector_to_hdf5
 
 void write_std_vector_to_hdf5
 (const CommonFG& file,
+	const vector<unsigned char>& data,
+	const string& caption)
+{
+	PredType datatype(PredType::NATIVE_UCHAR);
+	datatype.setOrder(H5T_ORDER_LE);
+	write_std_vector_to_hdf5
+	(file,
+		data,
+		caption,
+		datatype);
+}
+
+
+void write_std_vector_to_hdf5
+(const CommonFG& file,
 	const vector<int>& data,
 	const string& caption)
 {
@@ -79,6 +94,16 @@ namespace
 				caption,
 				PredType::NATIVE_INT);
 	}
+
+	vector<unsigned char> read_char_vector_from_hdf5
+	(const CommonFG& file,
+		const string& caption)
+	{
+		return read_vector_from_hdf5<unsigned char>
+			(file,
+				caption,
+				PredType::NATIVE_UCHAR);
+	}
 }
 
 
@@ -107,11 +132,13 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<v
 	vector<Primitive> const& cells = sim.GetCells();
 	size_t N = cells.size();
 	vector<double> density(N), pressure(N), velocity(N);
+	std::vector<unsigned char> stickers(N);
 	for (size_t i = 0; i < N; ++i)
 	{
 		density[i] = cells[i].density;
 		pressure[i] = cells[i].pressure;
 		velocity[i] = cells[i].velocity;
+		stickers[i] = cells[i].sticker;
 	}
 
 	write_std_vector_to_hdf5
@@ -125,6 +152,11 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<v
 		(hydrodynamic,
 			velocity,
 			"velocity");
+	write_std_vector_to_hdf5
+	(hydrodynamic,
+		stickers,
+		"stickers");
+
 	// appendices
 	if (a_names.size() > 0)
 	{
@@ -155,12 +187,15 @@ Snapshot read_hdf5_snapshot
 			read_double_vector_from_hdf5(g_hydrodynamic, "pressure");
 		const vector<double> velocity =
 			read_double_vector_from_hdf5(g_hydrodynamic, "velocity");
+		const vector<unsigned char> stickers =
+			read_char_vector_from_hdf5(g_hydrodynamic, "stickers");
 		res.cells.resize(density.size());
 		for (size_t i = 0; i<res.cells.size(); ++i) 
 		{
 			res.cells.at(i).density = density.at(i);
 			res.cells.at(i).pressure = pressure.at(i);
 			res.cells.at(i).velocity = velocity.at(i);
+			res.cells.at(i).sticker = stickers.at(i);
 		}
 	}
 

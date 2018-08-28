@@ -11,6 +11,8 @@ public:
 
 	Extensive();
 	~Extensive();
+
+	Extensive& operator+=(const Extensive &rhs);
 };
 
 #endif //EXTENSIVE_HPP
