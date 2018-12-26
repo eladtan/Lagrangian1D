@@ -1,6 +1,6 @@
 #include "Primitive.hpp"
 
-Primitive::Primitive():density(0),pressure(0),velocity(0),entropy(0),energy(0),sticker(0)
+Primitive::Primitive():density(0),pressure(0),velocity(0),entropy(0),energy(0),sticker(0),LastCool(0)
 {}
 
 Primitive::Primitive(Primitive const & other)
@@ -11,11 +11,12 @@ Primitive::Primitive(Primitive const & other)
 	entropy = other.entropy;
 	energy = other.energy;
 	sticker = other.sticker;
+	LastCool = other.LastCool;
 }
 
 Primitive::Primitive(double Density, double Pressure, double Velocity, double Entropy, double Energy, 
 	unsigned char Sticker):density(Density),pressure(Pressure),velocity(Velocity),entropy(Entropy),energy(Energy),
-	sticker(Sticker)
+	sticker(Sticker),LastCool(0)
 {}
 
 Primitive Primitive::operator-(Primitive const & other)const

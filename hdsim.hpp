@@ -24,6 +24,7 @@ private:
 	ExactRS const& rs_;
 	double time_;
 	size_t cycle_;
+	double TotalEcool_;
 	vector<pair<Primitive, Primitive> > interp_values_;
 	vector<RSsolution> rs_values_;
 	vector<Extensive> extensives_;
@@ -41,6 +42,7 @@ public:
 	void TimeAdvance2();
 	void TimeAdvance();
 	double GetTime()const;
+	double GetEcool()const;
 	vector<Primitive>const& GetCells()const;
 	vector<Primitive>& GetCells();
 	vector<Extensive>const& GetExtensives()const;
@@ -49,6 +51,7 @@ public:
 	vector<double>& GetEdges();
 	size_t GetCycle()const;
 	void SetTime(double t);
+	void SetEcool(double E);
 	void SetCycle(size_t cyc);
 	void ReCalcCells(vector<Extensive> & extensives);
 	void ReCalcExtensives(vector<Primitive> const& cells);

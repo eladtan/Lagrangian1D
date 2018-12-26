@@ -44,9 +44,55 @@ public:
 		size_t Ncells = cells.size();
 		for (size_t i = 0; i < Ncells; ++i)
 		{
-			double dP = geo_.GetVolume(edges, i) * 2 * cells[i].pressure * dt / (0.5*(edges[i + 1] + edges[i]));
+			double dP = (geo_.GetArea(edges[i + 1]) - geo_.GetArea(edges[i]))*cells[i].pressure*dt;
+			//double dP = geo_.GetVolume(edges, i) * 2 * cells[i].pressure * dt / (0.5*(edges[i + 1] + edges[i]));
 			extensives[i].momentum += dP;
 			extensives[i].et -= dP*cells[i].velocity;
+		}
+		return;
+	}
+};
+
+class CylindricalForce : public SourceTerm
+{
+private:
+	Cylindrical geo_;
+public:
+	CylindricalForce() :geo_(Cylindrical()) {}
+
+	void CalcForce(vector<double> const& edges, vector<Primitive> const& cells, double /*time*/,
+		vector<Extensive> & extensives, double dt)const
+	{
+		size_t Ncells = cells.size();
+		for (size_t i = 0; i < Ncells; ++i)
+		{
+			double dP = (geo_.GetArea(edges[i + 1]) - geo_.GetArea(edges[i]))*cells[i].pressure*dt;
+			//double dP = geo_.GetVolume(edges, i) * 2 * cells[i].pressure * dt / (0.5*(edges[i + 1] + edges[i]));
+			extensives[i].momentum += dP;
+			extensives[i].et -= dP * cells[i].velocity;
+		}
+		return;
+	}
+};
+
+class PointGravity : public SourceTerm
+{
+private:
+	const double mass_;
+	Geometry const& geo_;
+public:
+	PointGravity(double M,Geometry const& geo) :mass_(M),geo_(geo) {}
+
+	void CalcForce(vector<double> const& edges, vector<Primitive> const& cells, double /*time*/,
+		vector<Extensive> & extensives, double dt)const
+	{
+		size_t Ncells = cells.size();
+		for (size_t i = 0; i < Ncells; ++i)
+		{
+			double r = 0.5*(edges[i + 1] + edges[i]);
+			double g = -mass_ / (r*r);
+			extensives[i].momentum += g * cells[i].density*dt*geo_.GetVolume(edges,i);
+			extensives[i].energy += g * cells[i].density*dt*geo_.GetVolume(edges,i)*cells[i].velocity;
 		}
 		return;
 	}

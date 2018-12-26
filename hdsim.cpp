@@ -46,7 +46,7 @@ namespace
 hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, Interpolation const& interp,
 	IdealGas const& eos, ExactRS const& rs,SourceTerm const& source, Geometry const& geo, 
 	const double AMR_ratio, BoundarySolution const* BS):cfl_(cfl),
-	cells_(cells),edges_(edges),interpolation_(interp),eos_(eos),rs_(rs),time_(0),cycle_(0),
+	cells_(cells),edges_(edges),interpolation_(interp),eos_(eos),rs_(rs),time_(0),cycle_(0),TotalEcool_(0),
 	extensives_(vector<Extensive>()),source_(source),geo_(geo), AMR_ratio_(AMR_ratio), BoundarySolution_(BS),dt_suggest_(-1)
 {
 	size_t N = cells.size();
@@ -60,6 +60,7 @@ hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& e
 			eos_.dp2e(cells[i].density, cells[i].pressure)*extensives_[i].mass;
 		extensives_[i].entropy = eos_.dp2s(cells[i].density, cells[i].pressure)*extensives_[i].mass;
 		cells_[i].energy = eos_.dp2e(cells_[i].density, cells_[i].pressure);
+		cells_[i].LastCool = time_;
 		extensives_[i].et = cells_[i].energy*extensives_[i].mass;
 	}
 }
@@ -96,7 +97,7 @@ namespace
 	{
 		size_t N = interp_values.size();
 		res.resize(N);
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for schedule(static)
 		for (int i = 0; i < N; ++i)
 			res[i] = rs.Solve(interp_values[i].first, interp_values[i].second);
 	}
@@ -149,7 +150,8 @@ namespace
 		vector<Primitive> &cells,vector<RSsolution> const& rsvalues, Geometry const& geo)
 	{
 		size_t N = cells.size();
-		for (size_t i = 0; i < N; ++i)
+#pragma omp parallel for schedule(static)
+		for (int i = 0; i < N; ++i)
 		{
 			double vol = geo.GetVolume(edges, i);
 			cells[i].density = extensive[i].mass / vol;
@@ -282,8 +284,8 @@ void hdsim::TimeAdvance2()
 
 void hdsim::AMR(void)
 {
-	double pratio = 1.1;
-	double dratio = 1.2;
+	double pratio = 1.04;
+	double dratio = 1.1;
 	size_t N = cells_.size();
 	std::vector<size_t> edge_remove;
 	for (size_t i = 3; i < N - 3; ++i)
@@ -293,7 +295,7 @@ void hdsim::AMR(void)
 			continue;
 		double dx = edges_[i + 1] - edges_[i];
 		// Are we too small?
-		if(dx<5e-4*edges_[i])
+		if(dx<1e-4*edges_[i])
 		{
 			// Are we smooth?
 			bool smooth_left_left_left = (cells_[i - 2].density < cells_[i - 3].density * dratio) && (cells_[i - 2].density * dratio > cells_[i - 3].density)
@@ -315,29 +317,7 @@ void hdsim::AMR(void)
 				else
 					edge_remove.push_back(i + 1);
 			}
-			
-			/*if ((cells_[i].density < cells_[i - 1].density*2) && (cells_[i].density*2 > cells_[i - 1].density)
-				&& (cells_[i].pressure < cells_[i - 1].pressure*1.25) && (cells_[i].pressure*1.25 > cells_[i - 1].pressure))
-				edge_remove.push_back(i);
-			else
-				if ((cells_[i].density < cells_[i + 1].density*2) && (cells_[i].density*2 > cells_[i + 1].density)
-					&& (cells_[i].pressure < cells_[i + 1].pressure*1.25) && (cells_[i].pressure*1.25 > cells_[i + 1].pressure))
-					edge_remove.push_back(i + 1);
-					*/
 		}
-		/*else
-		{
-			if (dx < (AMR_ratio_*(edges_[i + 2] - edges_[i + 1])))
-			{
-				if ((cells_[i].density < cells_[i + 1].density*2) && (cells_[i].density*2 > cells_[i + 1].density)
-					&& (cells_[i].pressure < cells_[i + 1].pressure*1.25) && (cells_[i].pressure*1.25 > cells_[i + 1].pressure))
-					edge_remove.push_back(i + 1);
-				else
-					if ((cells_[i].density < cells_[i - 1].density*2) && (cells_[i].density*2 > cells_[i - 1].density)
-						&& (cells_[i].pressure < cells_[i - 1].pressure*1.25) && (cells_[i].pressure*1.25 > cells_[i - 1].pressure))
-						edge_remove.push_back(i);
-			}
-		}*/
 	}
 	edge_remove = unique(edge_remove);
 	size_t Nremove = edge_remove.size();
@@ -362,6 +342,11 @@ void hdsim::SetCycle(size_t cyc)
 double hdsim::GetTime() const
 {
 	return time_;
+}
+
+double hdsim::GetEcool() const
+{
+	return TotalEcool_;
 }
 
 vector<Primitive> const & hdsim::GetCells() const
@@ -404,4 +389,9 @@ size_t hdsim::GetCycle() const
 void hdsim::SetTime(double t)
 {
 	time_ = t;
+}
+
+void hdsim::SetEcool(double E)
+{
+	TotalEcool_ = E;
 }

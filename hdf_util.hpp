@@ -8,7 +8,7 @@
 using std::string;
 using std::vector;
 using std::pair;
-using H5::CommonFG;
+using H5::Group;
 using H5::PredType;
 using H5::DataSpace;
 using H5::DSetCreatPropList;
@@ -22,7 +22,7 @@ using H5::DataType;
 \param dt Data type
 */
 template<class T> void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<T>& data,
 	const string& caption,
 	const DataType& dt)
@@ -51,7 +51,7 @@ template<class T> void write_std_vector_to_hdf5
 \param caption Name of dataset
 */
 void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<double>& data,
 	const string& caption);
 
@@ -61,7 +61,7 @@ void write_std_vector_to_hdf5
 \param caption Name of dataset
 */
 void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<int>& data,
 	const string& caption);
 
@@ -71,7 +71,7 @@ void write_std_vector_to_hdf5
 \param caption Name of dataset
 */
 void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<unsigned char>& data,
 	const string& caption);
 
@@ -99,6 +99,9 @@ public:
 
 	//! \brief Cycle number
 	int cycle;
+
+	//! \brief Total energy radiated away
+	double Ecool;
 };
 
 /*! \brief Load snapshot data into memory

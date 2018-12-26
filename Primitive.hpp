@@ -10,6 +10,7 @@ public:
 	double entropy;
 	double energy;
 	unsigned char sticker;
+	double LastCool;
 
 	Primitive();
 

@@ -4,7 +4,7 @@
 using namespace H5;
 
 void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<double>& data,
 	const string& caption)
 {
@@ -18,7 +18,7 @@ void write_std_vector_to_hdf5
 }
 
 void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<unsigned char>& data,
 	const string& caption)
 {
@@ -33,7 +33,7 @@ void write_std_vector_to_hdf5
 
 
 void write_std_vector_to_hdf5
-(const CommonFG& file,
+(const Group& file,
 	const vector<int>& data,
 	const string& caption)
 {
@@ -51,18 +51,20 @@ Snapshot::Snapshot(void) :
 	edges(),
 	cells(),
 	time(),
-	cycle() {}
+	cycle(),
+	Ecool(){}
 
 Snapshot::Snapshot(const Snapshot& source) :
 	edges(source.edges),
 	cells(source.cells),
 	time(source.time),
-	cycle(source.cycle) {}
+	cycle(source.cycle),
+	Ecool(source.Ecool){}
 
 namespace 
 {
 	template<class T> vector<T> read_vector_from_hdf5
-		(const CommonFG& file,
+		(const Group& file,
 			const string& caption,
 			const DataType& datatype)
 	{
@@ -77,7 +79,7 @@ namespace
 	}
 
 	vector<double> read_double_vector_from_hdf5
-		(CommonFG& file, string const& caption)
+		(Group& file, string const& caption)
 	{
 		return read_vector_from_hdf5<double>
 			(file,
@@ -86,7 +88,7 @@ namespace
 	}
 
 	vector<int> read_int_vector_from_hdf5
-		(const CommonFG& file,
+		(const Group& file,
 			const string& caption)
 	{
 		return read_vector_from_hdf5<int>
@@ -96,7 +98,7 @@ namespace
 	}
 
 	vector<unsigned char> read_char_vector_from_hdf5
-	(const CommonFG& file,
+	(const Group& file,
 		const string& caption)
 	{
 		return read_vector_from_hdf5<unsigned char>
@@ -123,6 +125,10 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<v
 		(file,
 			vector<int>(1, sim.GetCycle()),
 			"cycle");
+	write_std_vector_to_hdf5
+	(file,
+		vector<double>(1, sim.GetEcool()),
+		"Ecool");
 
 	// Geometry  
 	write_std_vector_to_hdf5
@@ -131,7 +137,7 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<v
 	// Hydrodynamic
 	vector<Primitive> const& cells = sim.GetCells();
 	size_t N = cells.size();
-	vector<double> density(N), pressure(N), velocity(N);
+	vector<double> density(N), pressure(N), velocity(N),LastCool(N);
 	std::vector<unsigned char> stickers(N);
 	for (size_t i = 0; i < N; ++i)
 	{
@@ -139,6 +145,7 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<v
 		pressure[i] = cells[i].pressure;
 		velocity[i] = cells[i].velocity;
 		stickers[i] = cells[i].sticker;
+		LastCool[i] = cells[i].LastCool;
 	}
 
 	write_std_vector_to_hdf5
@@ -152,6 +159,10 @@ void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<v
 		(hydrodynamic,
 			velocity,
 			"velocity");
+	write_std_vector_to_hdf5
+	(hydrodynamic,
+		LastCool,
+		"LastCool");
 	write_std_vector_to_hdf5
 	(hydrodynamic,
 		stickers,
@@ -204,6 +215,9 @@ Snapshot read_hdf5_snapshot
 		const vector<double> time =
 			read_double_vector_from_hdf5(file, "time");
 		res.time = time.at(0);
+		const vector<double> Ecool =
+			read_double_vector_from_hdf5(file, "Ecool");
+		res.Ecool = Ecool.at(0);
 		const vector<int> cycle =
 			read_int_vector_from_hdf5(file, "cycle");
 		res.cycle = cycle.at(0);
