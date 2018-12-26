@@ -3,6 +3,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #if defined(_MSC_VER)
 /* Microsoft C/C++-compatible compiler */
 #include <intrin.h>
@@ -14,7 +15,7 @@ namespace
 {
 	double fastsqrt(double x)
 	{
-		if (x<FLT_MIN || x > FLT_MAX)
+		if (x<std::numeric_limits<float>::min() || x > std::numeric_limits<float>::max())
 			return std::sqrt(x);
 		double res = static_cast<double>(_mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(static_cast<float>(x)))));
 		return x*res*(1.5 - 0.5*res*res*x);
