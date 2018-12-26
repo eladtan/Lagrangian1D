@@ -1,5 +1,5 @@
 #include "hdf_util.hpp"
-#include <cassert>>
+#include <cassert>
 
 using namespace H5;
 
