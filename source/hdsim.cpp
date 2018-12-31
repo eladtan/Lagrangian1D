@@ -70,7 +70,7 @@ hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& e
 	extensives_.resize(N);
 	for (size_t i = 0; i < N; ++i)
 	{
-		double vol = geo_.GetVolume(edges,i);;
+		double vol = geo_.GetVolume(edges_,i);;
 		extensives_[i].mass = cells_[i].density*vol;
 		extensives_[i].momentum = extensives_[i].mass*cells_[i].velocity;
 		extensives_[i].energy = 0.5*extensives_[i].momentum*extensives_[i].momentum / extensives_[i].mass +
@@ -170,7 +170,6 @@ namespace
 		vector<Primitive> &cells,vector<RSsolution> const& rsvalues, Geometry const& geo)
 	{
 		size_t N = cells.size();
-#pragma omp parallel for schedule(static)
 		for (int i = 0; i < N; ++i)
 		{
 			double vol = geo.GetVolume(edges, i);
@@ -297,7 +296,7 @@ void hdsim::TimeAdvance2()
 	UpdateEdges(edges_, rs_values_, dt);
 #ifdef RICH_MPI
 	if (cycle_ % 1000 == 0)
-		RedistributeExtensives(extensives_,edges_);
+		RedistributeExtensives(extensives_,edges_,cells_,rs_values_);
 #endif
 	UpdateCells(extensives_, edges_, eos_, cells_, rs_values_,geo_);
 	time_ += 0.5*dt;

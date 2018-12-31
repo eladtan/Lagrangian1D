@@ -1,5 +1,6 @@
 #include "mpi_comm.hpp"
 #include <array>
+
 #ifdef RICH_MPI
 
 namespace
@@ -52,30 +53,34 @@ namespace
 		return res;
 	}
 
-	std::vector<double> ExtensiveVec2Double(std::vector<Extensive> const& cells)
+	std::vector<double> ExtensiveVec2Double(std::vector<Extensive> const& cells, std::vector<Primitive> const& pcells)
 	{
 		size_t N = cells.size();
 		std::vector<double> res;
-		res.reserve(5 * N);
+		res.reserve(7 * N);
 		for (size_t i = 0; i < N; ++i)
 		{
 			std::array<double, 5> temp = Extensive2Array(cells[i]);
 			for (size_t j = 0; j < 5; ++j)
 				res.push_back(temp[j]);
+			res.push_back(pcells[i].LastCool);
+			res.push_back(static_cast<double>(pcells[i].sticker));
 		}
 		return res;
 	}
 
-	std::vector<Extensive> VecDouble2Extensive(std::vector<double> const& data)
+	std::vector<Extensive> VecDouble2Extensive(std::vector<double> const& data,std::vector<Primitive> &cells)
 	{
-		size_t N = data.size() / 5;
+		size_t N = data.size() / 7;
 		std::vector<Extensive> res(N);
 		for (size_t i = 0; i < N; ++i)
 		{
 			std::array<double, 5> temp;
 			for (size_t j = 0; j < 5; ++j)
-				temp[j] = data[i * 5 + j];
+				temp[j] = data[i * 7 + j];
 			res[i] = Array2Extensive(temp);
+			cells[i].LastCool= data[i * 7 + 5];
+			cells[i].sticker = static_cast<unsigned char>(data[i * 7 + 6]);
 		}
 		return res;
 	}
@@ -260,7 +265,7 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 	return res;
 }
 
-void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &edges)
+void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &edges,std::vector<Primitive> &pcells, std::vector<RSsolution> &rsvalues)
 {
 	int nlocal = cells.size();
 	int ntotal = 0;
@@ -271,58 +276,83 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	size_t index_lower = (rank * ntotal) / ws;
 	size_t index_upper = ((rank+1) * ntotal) / ws -1;
 	std::vector<int> nperproc(ws, 0),disp(ws,0),newn(ws,0);
-	nlocal *= 5;
+	nlocal *= 7;
 	MPI_Gather(&nlocal, 1, MPI_INT, &nperproc[0], 1, MPI_INT, 0, MPI_COMM_WORLD);
-	std::vector<double> tosend = ExtensiveVec2Double(cells);
-	std::vector<double> torecv(2);
+	std::vector<double> tosend = ExtensiveVec2Double(cells,pcells);
+	std::vector<double> torecv(4);
 	if (rank == 0)
 	{
-		torecv.resize(ntotal * 5);
+		torecv.resize(ntotal * 7);
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = nperproc[i - 1] + disp[i - 1];
 	}
 	MPI_Gatherv(&tosend[0], tosend.size(), MPI_DOUBLE, &torecv[0], &nperproc[0], &disp[0], MPI_DOUBLE, 0,
 		MPI_COMM_WORLD);
-	tosend.resize(5 * (index_upper - index_lower + 1));
+	tosend.resize(7 * (index_upper - index_lower + 1));
 	// send the data
 	if (rank == 0)
 	{
 		for (size_t i = 0; i < ws; ++i)
-			newn[i] = 5*(((i + 1) * ntotal) / ws - (i * ntotal) / ws);
+			newn[i] = 7*(((i + 1) * ntotal) / ws - (i * ntotal) / ws);
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = newn[i - 1] + disp[i - 1];
 	}
 	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0],
-		5*(index_upper - index_lower + 1),MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	cells = VecDouble2Extensive(tosend);
-	// deal with the edges
+		7*(index_upper - index_lower + 1),MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	pcells.resize(tosend.size() / 7);
+	cells = VecDouble2Extensive(tosend,pcells);
+	// deal with the edges and RSvalues
 	if (rank == 0)
 	{
-		torecv.resize(ntotal + 1);
+		torecv.resize((ntotal + 1)*3);
 		for (size_t i = 0; i < ws; ++i)
-			nperproc[i] /= 5;
+		{
+			nperproc[i] /= 7;
+			nperproc[i] *= 3;
+		}
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = nperproc[i - 1] + disp[i - 1];
 	}
-	MPI_Gatherv(&edges[1], edges.size() - 1, MPI_DOUBLE, &torecv[1], &nperproc[0], &disp[0],
+	size_t Nedges = edges.size() - 1;
+	tosend.resize(Nedges*3);
+	for (size_t i = 0; i < Nedges; ++i)
+	{
+		tosend[i * 3] = edges[i + 1];
+		tosend[i * 3 + 1] = rsvalues[i + 1].pressure;
+		tosend[i * 3 + 2] = rsvalues[i + 1].velocity;
+	}
+	MPI_Gatherv(&tosend[0], Nedges*3, MPI_DOUBLE, &torecv[3], &nperproc[0], &disp[0],
 		MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	if(rank==0)
+	if (rank == 0)
+	{
 		torecv[0] = edges[0];
-	tosend.resize(index_upper - index_lower + 2);
+		torecv[1] = rsvalues[0].pressure;
+		torecv[2] = rsvalues[0].velocity;
+	}
+	tosend.resize(3*(index_upper - index_lower + 2));
 	if (rank == 0)
 	{
 		for (size_t i = 0; i < ws; ++i)
 		{
-			newn[i] /= 5;
+			newn[i] /= 7;
 			newn[i]++;
+			newn[i]*=3;
 			if(i>0)
-				disp[i] =newn[i-1] + disp[i-1] - 1;
+				disp[i] =newn[i-1] + disp[i-1] - 3;
 		}
 	}
-	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0],
-		(index_upper - index_lower + 2), MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	edges = tosend;
+	size_t Nnew = (index_upper - index_lower + 2);
+	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0], 3*Nnew, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	edges.resize(Nnew);
+	rsvalues.resize(Nnew);
+	for (size_t i = 0; i < Nnew; ++i)
+	{
+		edges[i] = tosend[i * 3];
+		rsvalues[i].pressure = tosend[i * 3 + 1];
+		rsvalues[i].velocity = tosend[i * 3 + 2];
+	}
 }
+
 void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, std::vector<std::vector<double> >& append)
 {
 	int nlocal = cells.size();
