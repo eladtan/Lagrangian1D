@@ -1,7 +1,9 @@
 #include "hdsim.hpp"
 #include <algorithm>
 #include <iostream>
-
+#ifdef RICH_MPI
+#include "mpi_comm.hpp"
+#endif
 namespace
 {
 	template <class T> vector<T> unique(vector<T> const& v)
@@ -49,16 +51,31 @@ hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& e
 	cells_(cells),edges_(edges),interpolation_(interp),eos_(eos),rs_(rs),time_(0),cycle_(0),TotalEcool_(0),
 	extensives_(vector<Extensive>()),source_(source),geo_(geo), AMR_ratio_(AMR_ratio), BoundarySolution_(BS),dt_suggest_(-1)
 {
-	size_t N = cells.size();
+#ifdef RICH_MPI
+	size_t Ntotal = cells.size();
+	int rank = 0,ws=0;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &ws);
+	size_t index_lower = rank * Ntotal / ws;
+	size_t index_upper = (rank + 1)*Ntotal / ws;
+	std::vector<Primitive> cells_temp(cells.begin() + index_lower, 
+		cells.begin() + index_upper);
+	std::vector<Primitive> cells_temp2(cells.begin(), cells.begin() + 1);
+	cells_ = cells_temp;
+	std::vector<double> edge_temp(edges.begin() + index_lower, edges.begin() +
+		index_upper + 1);
+	edges_ = edge_temp;
+#endif
+	size_t N = cells_.size();
 	extensives_.resize(N);
 	for (size_t i = 0; i < N; ++i)
 	{
 		double vol = geo_.GetVolume(edges,i);;
-		extensives_[i].mass = cells[i].density*vol;
-		extensives_[i].momentum = extensives_[i].mass*cells[i].velocity;
+		extensives_[i].mass = cells_[i].density*vol;
+		extensives_[i].momentum = extensives_[i].mass*cells_[i].velocity;
 		extensives_[i].energy = 0.5*extensives_[i].momentum*extensives_[i].momentum / extensives_[i].mass +
-			eos_.dp2e(cells[i].density, cells[i].pressure)*extensives_[i].mass;
-		extensives_[i].entropy = eos_.dp2s(cells[i].density, cells[i].pressure)*extensives_[i].mass;
+			eos_.dp2e(cells_[i].density, cells_[i].pressure)*extensives_[i].mass;
+		extensives_[i].entropy = eos_.dp2s(cells_[i].density, cells_[i].pressure)*extensives_[i].mass;
 		cells_[i].energy = eos_.dp2e(cells_[i].density, cells_[i].pressure);
 		cells_[i].LastCool = time_;
 		extensives_[i].et = cells_[i].energy*extensives_[i].mass;
@@ -89,6 +106,9 @@ namespace
 			dt_1 = std::max(dt_1, 1.0 / dt_suggest);
 			dt_suggest = -1;
 		}
+#ifdef RICH_MPI
+		MPI_Allreduce(MPI_IN_PLACE, &dt_1, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+#endif
 		return cfl/dt_1;
 	}
 
@@ -267,7 +287,6 @@ void hdsim::TimeAdvance2()
 		if (BoundarySolution_->ShouldCalc().second)
 		{
 			rs_values_.back() = bvalues.second;
-			//std::cout << rs_values_.back().velocity << std::endl;
 		}
 	}
 
@@ -276,6 +295,10 @@ void hdsim::TimeAdvance2()
 	UpdateExtensives(extensives_, rs_values_, dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
 	UpdateEdges(edges_, rs_values_, dt);
+#ifdef RICH_MPI
+	if (cycle_ % 1000 == 0)
+		RedistributeExtensives(extensives_,edges_);
+#endif
 	UpdateCells(extensives_, edges_, eos_, cells_, rs_values_,geo_);
 	time_ += 0.5*dt;
 	++cycle_;

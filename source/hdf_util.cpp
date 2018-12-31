@@ -1,5 +1,8 @@
 #include "hdf_util.hpp"
 #include <cassert>
+#ifdef RICH_MPI
+#include "mpi_comm.hpp"
+#endif
 
 using namespace H5;
 
@@ -109,74 +112,91 @@ namespace
 }
 
 
-void write_snapshot_to_hdf5(hdsim const& sim, string const& fname, std::vector<vector<double> > appendices,
+void write_snapshot_to_hdf5(hdsim &sim, string const& fname, std::vector<vector<double> > &appendices,
 	std::vector<std::string> a_names)
 {
-	H5File file(H5std_string(fname), H5F_ACC_TRUNC);
-	Group geometry = file.createGroup("/geometry");
-	Group hydrodynamic = file.createGroup("/hydrodynamic");
+#ifdef RICH_MPI
+	// consolidate data
+	int rank = 0;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	std::vector<Primitive> oldcells = sim.GetCells();
+	std::vector<double> oldedges = sim.GetEdges();
+	std::vector<vector<double> > oldappend = appendices;
+	ConsolidateData(sim.GetCells(), sim.GetEdges(),appendices);
+	if (rank == 0)
+	{
+#endif
+		H5File file(H5std_string(fname), H5F_ACC_TRUNC);
+		Group geometry = file.createGroup("/geometry");
+		Group hydrodynamic = file.createGroup("/hydrodynamic");
 
-	// General
-	write_std_vector_to_hdf5
+		// General
+		write_std_vector_to_hdf5
 		(file,
 			vector<double>(1, sim.GetTime()),
 			"time");
-	write_std_vector_to_hdf5
+		write_std_vector_to_hdf5
 		(file,
 			vector<int>(1, sim.GetCycle()),
 			"cycle");
-	write_std_vector_to_hdf5
-	(file,
-		vector<double>(1, sim.GetEcool()),
-		"Ecool");
+		write_std_vector_to_hdf5
+		(file,
+			vector<double>(1, sim.GetEcool()),
+			"Ecool");
 
-	// Geometry  
-	write_std_vector_to_hdf5
-		(geometry,sim.GetEdges(),"edges");
-	
-	// Hydrodynamic
-	vector<Primitive> const& cells = sim.GetCells();
-	size_t N = cells.size();
-	vector<double> density(N), pressure(N), velocity(N),LastCool(N);
-	std::vector<unsigned char> stickers(N);
-	for (size_t i = 0; i < N; ++i)
-	{
-		density[i] = cells[i].density;
-		pressure[i] = cells[i].pressure;
-		velocity[i] = cells[i].velocity;
-		stickers[i] = cells[i].sticker;
-		LastCool[i] = cells[i].LastCool;
-	}
+		// Geometry  
+		write_std_vector_to_hdf5
+		(geometry, sim.GetEdges(), "edges");
 
-	write_std_vector_to_hdf5
-		(hydrodynamic,density,
+		// Hydrodynamic
+		vector<Primitive> const& cells = sim.GetCells();
+		size_t N = cells.size();
+		vector<double> density(N), pressure(N), velocity(N), LastCool(N);
+		std::vector<unsigned char> stickers(N);
+		for (size_t i = 0; i < N; ++i)
+		{
+			density[i] = cells[i].density;
+			pressure[i] = cells[i].pressure;
+			velocity[i] = cells[i].velocity;
+			stickers[i] = cells[i].sticker;
+			LastCool[i] = cells[i].LastCool;
+		}
+
+		write_std_vector_to_hdf5
+		(hydrodynamic, density,
 			"density");
-	write_std_vector_to_hdf5
+		write_std_vector_to_hdf5
 		(hydrodynamic,
 			pressure,
 			"pressure");
-	write_std_vector_to_hdf5
+		write_std_vector_to_hdf5
 		(hydrodynamic,
 			velocity,
 			"velocity");
-	write_std_vector_to_hdf5
-	(hydrodynamic,
-		LastCool,
-		"LastCool");
-	write_std_vector_to_hdf5
-	(hydrodynamic,
-		stickers,
-		"stickers");
+		write_std_vector_to_hdf5
+		(hydrodynamic,
+			LastCool,
+			"LastCool");
+		write_std_vector_to_hdf5
+		(hydrodynamic,
+			stickers,
+			"stickers");
 
-	// appendices
-	if (a_names.size() > 0)
-	{
-		Group Gappend = file.createGroup("/appendices");
-		assert(a_names.size() == appendices.size());
-		size_t Nappend = appendices.size();
-		for (size_t i = 0; i < Nappend; ++i)
-			write_std_vector_to_hdf5(Gappend, appendices[i], a_names[i]);
+		// appendices
+		if (a_names.size() > 0)
+		{
+			Group Gappend = file.createGroup("/appendices");
+			assert(a_names.size() == appendices.size());
+			size_t Nappend = appendices.size();
+			for (size_t i = 0; i < Nappend; ++i)
+				write_std_vector_to_hdf5(Gappend, appendices[i], a_names[i]);
+		}
+#ifdef RICH_MPI
+		sim.GetCells() = oldcells;
+		sim.GetEdges() = oldedges;
+		appendices = oldappend;
 	}
+#endif
 }
 
 Snapshot read_hdf5_snapshot
