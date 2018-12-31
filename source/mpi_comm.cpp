@@ -351,6 +351,11 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		rsvalues[i].pressure = tosend[i * 3 + 1];
 		rsvalues[i].velocity = tosend[i * 3 + 2];
 	}
+	// clear memory
+	rsvalues.shrink_to_fit();
+	edges.shrink_to_fit();
+	cells.shrink_to_fit();
+	pcells.shrink_to_fit();
 }
 
 void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, std::vector<std::vector<double> >& append,double &Ecool)
