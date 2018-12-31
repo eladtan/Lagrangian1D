@@ -112,7 +112,7 @@ namespace
 }
 
 
-void write_snapshot_to_hdf5(hdsim &sim, string const& fname, std::vector<vector<double> > &appendices,
+void write_snapshot_to_hdf5(hdsim &sim, string const& fname, std::vector<vector<double> > appendices,
 	std::vector<std::string> a_names)
 {
 #ifdef RICH_MPI
