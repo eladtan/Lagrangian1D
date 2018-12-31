@@ -5,6 +5,7 @@
 #include "Extensive.hpp"
 #include "Primitive.hpp"
 #include <vector>
+#include <array>
 
 std::array<Primitive,4> SendRecvPrimitive(std::vector<Primitive> const& cells);
 
