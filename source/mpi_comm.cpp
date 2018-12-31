@@ -353,7 +353,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	}
 }
 
-void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, std::vector<std::vector<double> >& append)
+void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, std::vector<std::vector<double> >& append,double &Ecool)
 {
 	int nlocal = cells.size();
 	int ntotal = 0;
@@ -404,5 +404,9 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 		if (rank == 0)
 			append[i] = torecv;
 	}
+	double NewTot = 0;
+	MPI_Reduce(&Ecool, &NewTot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+	if (rank == 0)
+		Ecool = NewTot;
 }
 #endif

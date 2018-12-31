@@ -371,6 +371,11 @@ double hdsim::GetEcool() const
 	return TotalEcool_;
 }
 
+double& hdsim::GetEcool()
+{
+	return TotalEcool_;
+}
+
 vector<Primitive> const & hdsim::GetCells() const
 {
 	return cells_;

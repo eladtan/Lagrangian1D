@@ -122,7 +122,8 @@ void write_snapshot_to_hdf5(hdsim &sim, string const& fname, std::vector<vector<
 	std::vector<Primitive> oldcells = sim.GetCells();
 	std::vector<double> oldedges = sim.GetEdges();
 	std::vector<vector<double> > oldappend = appendices;
-	ConsolidateData(sim.GetCells(), sim.GetEdges(),appendices);
+	double OldEcool = sim.GetEcool();
+	ConsolidateData(sim.GetCells(), sim.GetEdges(),appendices,sim.GetEcool());
 	if (rank == 0)
 	{
 #endif
@@ -195,6 +196,7 @@ void write_snapshot_to_hdf5(hdsim &sim, string const& fname, std::vector<vector<
 		sim.GetCells() = oldcells;
 		sim.GetEdges() = oldedges;
 		appendices = oldappend;
+		sim.GetEcool() = OldEcool;
 	}
 #endif
 }

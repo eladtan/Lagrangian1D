@@ -43,6 +43,7 @@ public:
 	void TimeAdvance();
 	double GetTime()const;
 	double GetEcool()const;
+	double& GetEcool();
 	vector<Primitive>const& GetCells()const;
 	vector<Primitive>& GetCells();
 	vector<Extensive>const& GetExtensives()const;
