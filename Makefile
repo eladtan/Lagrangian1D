@@ -17,6 +17,12 @@ else ifeq ($(MODE),intel)
 	OPTIMIZATION_FLAGS := -O3 -ipo -xHost -fp-model precise -std=c++11
 	LINT_FLAGS :=
 	ARCHIVER_FUNC := xiar
+else ifeq ($(MODE),parallel_intel)
+	CCC := icc
+	CC := mpiicpc
+	OPTIMIZATION_FLAGS := -DRICH_MPI -O3 -ipo -xHost -fp-model precise -std=c++11 -DOMPI_SKIP_MPICXX
+	LINT_FLAGS = 
+	ARCHIVER_FUNC := xiar
 else
 	MODE = production
 	OPTIMIZATION_FLAGS := -O3 -march=native -std=c++11 -fno-expensive-optimizations
