@@ -286,6 +286,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = nperproc[i - 1] + disp[i - 1];
 	}
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gatherv(&tosend[0], tosend.size(), MPI_DOUBLE, &torecv[0], &nperproc[0], &disp[0], MPI_DOUBLE, 0,
 		MPI_COMM_WORLD);
 	tosend.resize(7 * (index_upper - index_lower + 1));
@@ -297,6 +298,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = newn[i - 1] + disp[i - 1];
 	}
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0],
 		7*(index_upper - index_lower + 1),MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	pcells.resize(tosend.size() / 7);
@@ -321,6 +323,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		tosend[i * 3 + 1] = rsvalues[i + 1].pressure;
 		tosend[i * 3 + 2] = rsvalues[i + 1].velocity;
 	}
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gatherv(&tosend[0], Nedges*3, MPI_DOUBLE, &torecv[3], &nperproc[0], &disp[0],
 		MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	if (rank == 0)
@@ -342,6 +345,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		}
 	}
 	size_t Nnew = (index_upper - index_lower + 2);
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0], 3*Nnew, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	edges.resize(Nnew);
 	rsvalues.resize(Nnew);
@@ -390,6 +394,7 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = nperproc[i - 1] + disp[i - 1];
 	}
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gatherv(&edges[1], edges.size() - 1, MPI_DOUBLE, &torecv[1], &nperproc[0], &disp[0],
 		MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	if (rank == 0)
@@ -404,6 +409,7 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 		{
 			torecv.resize(ntotal);
 		}
+		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Gatherv(&append[i][0], append[i].size(), MPI_DOUBLE, &torecv[0], &nperproc[0], &disp[0],
 			MPI_DOUBLE, 0, MPI_COMM_WORLD);
 		if (rank == 0)
@@ -413,5 +419,6 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 	MPI_Reduce(&Ecool, &NewTot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 	if (rank == 0)
 		Ecool = NewTot;
+	MPI_Barrier(MPI_COMM_WORLD);
 }
 #endif
