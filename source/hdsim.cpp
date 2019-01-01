@@ -117,7 +117,6 @@ namespace
 	{
 		size_t N = interp_values.size();
 		res.resize(N);
-#pragma omp parallel for schedule(static)
 		for (int i = 0; i < N; ++i)
 			res[i] = rs.Solve(interp_values[i].first, interp_values[i].second);
 	}

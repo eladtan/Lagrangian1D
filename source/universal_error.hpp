@@ -48,4 +48,6 @@ private:
   std::vector<double> values_;
 };
 
+void DisplayError(UniversalError const& eo);
+
 #endif // UNIVERSAL_ERROR_HPP
