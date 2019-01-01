@@ -211,7 +211,7 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 	MPI_Comm_size(MPI_COMM_WORLD, &ws);
 	std::array<double, 4> res;
 	std::array<double, 2> recv;
-	MPI_Request req;
+	MPI_Request req,req2;
 	if (rank == 0)
 	{
 		size_t N = edges.size() - 2;
@@ -219,6 +219,7 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 		MPI_Recv(&recv[0], 2, MPI_DOUBLE, 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		res[2] = recv[0];
 		res[3] = recv[1];
+		MPI_Wait(&req, MPI_STATUS_IGNORE);
 	}
 	else
 	{
@@ -228,13 +229,14 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 			MPI_Recv(&recv[0],2, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			res[0] = recv[0];
 			res[1] = recv[1];
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		}
 		else
 		{
 			MPI_Status status;
 			size_t N = edges.size() - 2;
 			MPI_Isend(&edges[1], 2, MPI_DOUBLE, rank - 1, 1, MPI_COMM_WORLD, &req);
-			MPI_Isend(&edges[N-1], 2, MPI_DOUBLE, rank + 1, 1, MPI_COMM_WORLD, &req);
+			MPI_Isend(&edges[N-1], 2, MPI_DOUBLE, rank + 1, 1, MPI_COMM_WORLD, &req2);
 			MPI_Probe(MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
 			MPI_Recv(&recv[0], 2, MPI_DOUBLE, status.MPI_SOURCE, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			if (status.MPI_SOURCE == (rank - 1))
@@ -259,6 +261,8 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 				res[2] = recv[0];
 				res[3] = recv[1];
 			}
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+			MPI_Wait(&req2, MPI_STATUS_IGNORE);
 		}
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
