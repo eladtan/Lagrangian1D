@@ -122,7 +122,7 @@ std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
 	std::array<double, 14> data,data2,recv;
 	std::array<double, 7> temp;
 	std::array<Primitive, 4> res;
-	MPI_Request req;
+	MPI_Request req,req2;
 	if (rank == 0)
 	{
 		size_t N = cells.size() - 1;
@@ -136,6 +136,7 @@ std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
 		res[2] = Array2Primitive(temp);
 		std::copy(recv.begin() + 7, recv.end() , temp.begin());
 		res[3] = Array2Primitive(temp);
+		MPI_Wait(&req,MPI_STATUS_IGNORE);
 	}
 	else
 	{
@@ -151,6 +152,7 @@ std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
 			res[0] = Array2Primitive(temp);
 			std::copy(recv.begin() + 7, recv.end(), temp.begin());
 			res[1] = Array2Primitive(temp);
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		}
 		else
 		{
@@ -165,7 +167,7 @@ std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
 			temp = Primitive2Array(cells[1]);
 			std::copy(temp.begin(), temp.end(), data.begin() + 7);
 			MPI_Isend(&data[0], 14, MPI_DOUBLE, rank - 1, 0, MPI_COMM_WORLD, &req);
-			MPI_Isend(&data2[0], 14, MPI_DOUBLE, rank + 1, 0, MPI_COMM_WORLD, &req);
+			MPI_Isend(&data2[0], 14, MPI_DOUBLE, rank + 1, 0, MPI_COMM_WORLD, &req2);
 			MPI_Probe(MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
 			MPI_Recv(&recv[0], 14, MPI_DOUBLE, status.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			if (status.MPI_SOURCE == (rank - 1))
@@ -198,6 +200,8 @@ std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
 				std::copy(recv.begin() + 7, recv.end(), temp.begin());
 				res[3] = Array2Primitive(temp);
 			}
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+			MPI_Wait(&req2, MPI_STATUS_IGNORE);
 		}
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -327,9 +331,9 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		tosend[i * 3 + 1] = rsvalues[i + 1].pressure;
 		tosend[i * 3 + 2] = rsvalues[i + 1].velocity;
 	}
-	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gatherv(&tosend[0], Nedges*3, MPI_DOUBLE, &torecv[3], &nperproc[0], &disp[0],
 		MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
 	if (rank == 0)
 	{
 		torecv[0] = edges[0];
@@ -349,7 +353,6 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		}
 	}
 	size_t Nnew = (index_upper - index_lower + 2);
-	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0], 3*Nnew, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	edges.resize(Nnew);
 	rsvalues.resize(Nnew);
@@ -387,6 +390,7 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 	}
 	MPI_Gatherv(&tosend[0], tosend.size(), MPI_DOUBLE, &torecv[0], &nperproc[0], &disp[0], MPI_DOUBLE, 0,
 		MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
 	if (rank == 0)
 		cells = VecDouble2Primitive(torecv);
 	// deal with the edges
@@ -398,7 +402,6 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 		for (size_t i = 1; i < ws; ++i)
 			disp[i] = nperproc[i - 1] + disp[i - 1];
 	}
-	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Gatherv(&edges[1], edges.size() - 1, MPI_DOUBLE, &torecv[1], &nperproc[0], &disp[0],
 		MPI_DOUBLE, 0, MPI_COMM_WORLD);
 	if (rank == 0)
