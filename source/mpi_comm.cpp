@@ -1,5 +1,6 @@
 #include "mpi_comm.hpp"
 #include <array>
+#include <assert.h>
 
 #ifdef RICH_MPI
 
@@ -72,6 +73,8 @@ namespace
 	std::vector<Extensive> VecDouble2Extensive(std::vector<double> const& data,std::vector<Primitive> &cells)
 	{
 		size_t N = data.size() / 7;
+		if (N * 7 != data.size())
+			assert(false);
 		std::vector<Extensive> res(N);
 		for (size_t i = 0; i < N; ++i)
 		{
@@ -102,6 +105,7 @@ namespace
 	std::vector<Primitive> VecDouble2Primitive(std::vector<double> const& data)
 	{
 		size_t N = data.size() / 7;
+		assert(data.size() % 7 == 0);
 		std::vector<Primitive> res(N);
 		for (size_t i = 0; i < N; ++i)
 		{
@@ -123,6 +127,7 @@ std::array<Primitive, 4> SendRecvPrimitive(std::vector<Primitive> const& cells)
 	std::array<double, 7> temp;
 	std::array<Primitive, 4> res;
 	MPI_Request req,req2;
+	assert(cells.size() > 2);
 	if (rank == 0)
 	{
 		size_t N = cells.size() - 1;
@@ -216,6 +221,7 @@ std::array<double,4> SendRecvEdges(std::vector<double> const & edges)
 	std::array<double, 4> res;
 	std::array<double, 2> recv;
 	MPI_Request req,req2;
+	assert(edges.size() > 3);
 	if (rank == 0)
 	{
 		size_t N = edges.size() - 2;

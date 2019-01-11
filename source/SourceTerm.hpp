@@ -79,9 +79,10 @@ class PointGravity : public SourceTerm
 {
 private:
 	const double mass_;
+	const double L_;
 	Geometry const& geo_;
 public:
-	PointGravity(double M,Geometry const& geo) :mass_(M),geo_(geo) {}
+	PointGravity(double M,Geometry const& geo,double L = 0) :mass_(M),geo_(geo),L_(L) {}
 
 	void CalcForce(vector<double> const& edges, vector<Primitive> const& cells, double /*time*/,
 		vector<Extensive> & extensives, double dt)const
@@ -90,7 +91,7 @@ public:
 		for (size_t i = 0; i < Ncells; ++i)
 		{
 			double r = 0.5*(edges[i + 1] + edges[i]);
-			double g = -mass_ / (r*r);
+			double g = -mass_ / (r*r)+L_*L_/(r*r*r);
 			extensives[i].momentum += g * cells[i].density*dt*geo_.GetVolume(edges,i);
 			extensives[i].energy += g * cells[i].density*dt*geo_.GetVolume(edges,i)*cells[i].velocity;
 		}
