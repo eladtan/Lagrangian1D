@@ -180,9 +180,9 @@ vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, 
 				1 : -1);
 		double dxl = edges[i+1] - edges[i];
 		double dxr = edges[i+2] - edges[i+1];
-		slope.density = 2 * (cells[i].density + slope.density*0.5*dxl - cells[i + 1].density) / dxr;
-		slope.pressure = 2 * (cells[i].pressure + slope.pressure*0.5*dxl - cells[i + 1].pressure) / dxr;
-		slope.velocity = 2 * (cells[i].velocity + slope.velocity*0.5*dxl - cells[i + 1].velocity) / dxr;
+		slope.density = -2 * (cells[i].density + slope.density*0.5*dxl - cells[i + 1].density) / dxr;
+		slope.pressure = -2 * (cells[i].pressure + slope.pressure*0.5*dxl - cells[i + 1].pressure) / dxr;
+		slope.velocity = -2 * (cells[i].velocity + slope.velocity*0.5*dxl - cells[i + 1].velocity) / dxr;
 
 		res[0] = cells[i + 1] - slope*0.5*dxr;
 		res[1] = cells[i + 1] + slope*0.5*dxr;
