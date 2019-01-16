@@ -402,6 +402,7 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 	MPI_Gather(&nlocal, 1, MPI_INT, &nperproc[0], 1, MPI_INT, 0, MPI_COMM_WORLD);
 	std::vector<double> tosend = PrimitiveVec2Double(cells);
 	std::vector<double> torecv(2);
+	assert(nlocal > 0);
 	if (rank == 0)
 	{
 		torecv.resize(ntotal * 7);
@@ -432,12 +433,22 @@ void ConsolidateData(std::vector<Primitive>& cells, std::vector<double>& edges, 
 	// deal with appendices
 	for (size_t i = 0; i < append.size(); ++i)
 	{
+		nlocal = append[i].size();
+		ntotal = 0;
+		MPI_Gather(&nlocal, 1, MPI_INT, &nperproc[0], 1, MPI_INT, 0, MPI_COMM_WORLD);
 		if (rank == 0)
 		{
+			ntotal = nlocal;
+			torecv.resize(ntotal);
+			disp[0] = 0;
+			for (size_t i = 1; i < ws; ++i)
+			{
+				disp[i] = nperproc[i - 1] + disp[i - 1];
+				ntotal += nperproc[i];
+			}
 			torecv.resize(ntotal);
 		}
-		MPI_Barrier(MPI_COMM_WORLD);
-		MPI_Gatherv(&append[i][0], append[i].size(), MPI_DOUBLE, &torecv[0], &nperproc[0], &disp[0],
+		MPI_Gatherv(&append[i][0], nlocal, MPI_DOUBLE, &torecv[0], &nperproc[0], &disp[0],
 			MPI_DOUBLE, 0, MPI_COMM_WORLD);
 		if (rank == 0)
 			append[i] = torecv;
