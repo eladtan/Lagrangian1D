@@ -1,7 +1,7 @@
 #include "mpi_comm.hpp"
 #include <array>
 #include <assert.h>
-
+#include <iostream>
 #ifdef RICH_MPI
 
 namespace
@@ -297,7 +297,8 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	MPI_Barrier(MPI_COMM_WORLD);
 	if (shouldcalc == 0)
 		return;
-
+	if (rank == 0)
+		std::cout << "Redistribute data" << std::endl;
 	size_t index_lower = (rank * ntotal) / ws;
 	size_t index_upper = ((rank+1) * ntotal) / ws -1;
 	std::vector<int> nperproc(ws, 0),disp(ws,0),newn(ws,0);
