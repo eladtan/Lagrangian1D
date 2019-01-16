@@ -251,3 +251,9 @@ Snapshot read_hdf5_snapshot
 	return res;
 }
 
+string int2str(int n)
+{
+	stringstream ss;
+	ss << n;
+	return ss.str();
+}

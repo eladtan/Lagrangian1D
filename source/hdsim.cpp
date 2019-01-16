@@ -130,11 +130,13 @@ namespace
 			double v = cells[i].momentum / cells[i].mass;
 			double dP = (rs_values_[i + 1].pressure * geo.GetArea(edges[i+1]) - rs_values_[i].pressure 
 				* geo.GetArea(edges[i]));
+			//double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
 			cells[i].momentum -= dP*dt;
 			double dE = (rs_values_[i + 1].pressure*rs_values_[i + 1].velocity* geo.GetArea(edges[i + 1])
 				- rs_values_[i].pressure*rs_values_[i].velocity* geo.GetArea(edges[i]))*dt;
-			cells[i].energy -= dE;
-			cells[i].et -= dE - v*dP*dt;
+			cells[i].energy += dE;
+			//double newEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
+			cells[i].et += dE -dP*dt*v;
 		}
 	}
 
@@ -145,21 +147,19 @@ namespace
 			edges[i] += rs_values_[i].velocity*dt;
 	}
 
-	bool ShouldUseEntropy(Primitive const& cell, vector<RSsolution> const& rsvalues, size_t index,double et)
+	bool ShouldUseEntropy(Primitive const& cell, vector<RSsolution> const& rsvalues, size_t index,double et,double EntropyEt)
 	{
 		double dv = rsvalues[index + 1].velocity - rsvalues[index].velocity;
 		if (dv > 0)
+			return true;
+		if (et < EntropyEt)
 			return true;
 		double ek = cell.velocity*cell.velocity;
 		if (et < 0)
 			return true;
 		if (et > 0.001*ek)
 			return false;
-/*		double de = rsvalues[index + 1].velocity*rsvalues[index+1].pressure - rsvalues[index].velocity*
-			rsvalues[index].pressure;
-		if (de<0)
-			return true;*/
-		if (dv*dv > 0.0001*et)
+		if (dv*dv > 0.001*et)
 			return false;
 		else
 			return true;
@@ -176,10 +176,12 @@ namespace
 			cells[i].velocity = extensive[i].momentum / extensive[i].mass;
 			cells[i].energy = extensive[i].et / extensive[i].mass;
 			double et = cells[i].energy;
-			if (ShouldUseEntropy(cells[i], rsvalues, i,et))
+			double et2 = extensive[i].energy / extensive[i].mass - 0.5 * cells[i].velocity*cells[i].velocity;
+			if (ShouldUseEntropy(cells[i], rsvalues, i,et,eos.dp2e(cells[i].density,eos.sd2p(cells[i].entropy,cells[i].density))))
 				cells[i].pressure = eos.sd2p(extensive[i].entropy/extensive[i].mass, cells[i].density);
 			else
 				cells[i].pressure = eos.de2p(cells[i].density, et);
+			cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
 			et = extensive[i].mass*eos.dp2e(cells[i].density, cells[i].pressure);
 			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass +	et;
 			extensive[i].et = et;
@@ -316,7 +318,7 @@ void hdsim::AMR(void)
 			continue;
 		double dx = edges_[i + 1] - edges_[i];
 		// Are we too small?
-		if(dx<1e-4*edges_[i])
+		if(dx< AMR_ratio_*edges_[i])
 		{
 			// Are we smooth?
 			bool smooth_left_left_left = (cells_[i - 2].density < cells_[i - 3].density * dratio) && (cells_[i - 2].density * dratio > cells_[i - 3].density)

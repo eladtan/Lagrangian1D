@@ -81,21 +81,30 @@ private:
 	const double mass_;
 	const double L_;
 	Geometry const& geo_;
+	mutable double dt_1_;
 public:
-	PointGravity(double M,Geometry const& geo,double L = 0) :mass_(M),geo_(geo),L_(L) {}
+	PointGravity(double M,Geometry const& geo,double L = 0) :mass_(M),geo_(geo),L_(L),dt_1_(0) {}
 
 	void CalcForce(vector<double> const& edges, vector<Primitive> const& cells, double /*time*/,
 		vector<Extensive> & extensives, double dt)const
 	{
 		size_t Ncells = cells.size();
+		dt_1_ = 0;
 		for (size_t i = 0; i < Ncells; ++i)
 		{
 			double r = 0.5*(edges[i + 1] + edges[i]);
 			double g = -mass_ / (r*r)+L_*L_/(r*r*r);
 			extensives[i].momentum += g * cells[i].density*dt*geo_.GetVolume(edges,i);
 			extensives[i].energy += g * cells[i].density*dt*geo_.GetVolume(edges,i)*cells[i].velocity;
+			dt_1_ = std::max(dt_1_, std::sqrt(std::abs(g) / (edges[i + 1] - edges[i])));
 		}
+		dt_1_ *= 8;
 		return;
+	}
+
+	double GetInverseTimeStep(vector<double> const& edges)const
+	{
+		return dt_1_;
 	}
 };
 

@@ -3,6 +3,7 @@
 
 #include <H5Cpp.h>
 #include <string>
+#include <sstream>
 #include "hdsim.hpp"
 
 using std::string;
@@ -121,4 +122,7 @@ Snapshot read_hdf5_snapshot(const string& fname);
 */
 void write_snapshot_to_hdf5(hdsim & sim, string const& fname,std::vector<vector<double> > appendices = std::vector<vector<double> >(),
 	std::vector<std::string> a_names = std::vector<std::string>());
+
+string int2str(int n);
+
 #endif // HDF_UTIL

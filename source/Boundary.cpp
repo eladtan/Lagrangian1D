@@ -115,6 +115,9 @@ vector<Primitive> FreeFlow::GetBoundaryValues(vector<Primitive> const & cells, v
 		res[1] = cells[N - 2];
 		res[2] = res[1];
 		res[0] = cells[N - 2];
+	/*	const Primitive sl = (cells[i] - cells[i - 1]) / (0.5*(edges[i + 1] - edges[i - 1]));
+		const Primitive sr = (cells[i + 1] - cells[i]) / (0.5*(edges[i + 2] - edges[i]));
+		const Primitive sc = (cells[i + 1] - cells[i - 1]) / (0.5*(edges[i + 2] + edges[i + 1] - edges[i - 1]*/
 	}
 	return res;
 }
@@ -146,11 +149,10 @@ vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, 
 		else
 			slope.velocity = std::min(std::fabs(sl.velocity), std::min(std::fabs(sr.velocity), std::fabs(sc.velocity))) * (sl.velocity > 0 ?
 				1 : -1);
+				
 		double dx1 = edges[2] - edges[1];
 		double dx0 = edges[1] - edges[0];
-		slope.density = 2 * (cells[1].density - slope.density*0.5*dx1 - cells[0].density) / dx0;
-		slope.pressure = 2 * (cells[1].pressure - slope.pressure*0.5*dx1 - cells[0].pressure) / dx0;
-		slope.velocity = 2 * (cells[1].velocity - slope.velocity*0.5*dx1 - cells[0].velocity) / dx0;
+
 
 		res[1] = cells[0] - slope*0.5*dx0;
 		res[0] = res[1];
@@ -180,9 +182,9 @@ vector<Primitive> FreeFlow2::GetBoundaryValues(vector<Primitive> const & cells, 
 				1 : -1);
 		double dxl = edges[i+1] - edges[i];
 		double dxr = edges[i+2] - edges[i+1];
-		slope.density = -2 * (cells[i].density + slope.density*0.5*dxl - cells[i + 1].density) / dxr;
-		slope.pressure = -2 * (cells[i].pressure + slope.pressure*0.5*dxl - cells[i + 1].pressure) / dxr;
-		slope.velocity = -2 * (cells[i].velocity + slope.velocity*0.5*dxl - cells[i + 1].velocity) / dxr;
+		//slope.density = -2 * (cells[i].density + slope.density*0.5*dxl - cells[i + 1].density) / dxr;
+		//slope.pressure = -2 * (cells[i].pressure + slope.pressure*0.5*dxl - cells[i + 1].pressure) / dxr;
+		//slope.velocity = -2 * (cells[i].velocity + slope.velocity*0.5*dxl - cells[i + 1].velocity) / dxr;
 
 		res[0] = cells[i + 1] - slope*0.5*dxr;
 		res[1] = cells[i + 1] + slope*0.5*dxr;
