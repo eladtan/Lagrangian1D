@@ -287,6 +287,16 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	int rank = 0, ws = 0;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &ws);
+	// Do we need ro rebalance?
+	double maxload = (1.0*nlocal * ws) / ntotal;
+	int newload = 0;
+	if (maxload > 1.25 || maxload < 0.75)
+		newload = 1;
+	int shouldcalc = 0;
+	MPI_Allreduce(&newload, &shouldcalc, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+	if (shouldcalc == 0)
+		return;
+
 	size_t index_lower = (rank * ntotal) / ws;
 	size_t index_upper = ((rank+1) * ntotal) / ws -1;
 	std::vector<int> nperproc(ws, 0),disp(ws,0),newn(ws,0);

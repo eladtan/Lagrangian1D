@@ -296,8 +296,7 @@ void hdsim::TimeAdvance2()
 	source_.CalcForce(edges_, cells_, time_, extensives_, dt);
 	UpdateEdges(edges_, rs_values_, dt);
 #ifdef RICH_MPI
-	if (cycle_ % 1000 == 0)
-		RedistributeExtensives(extensives_,edges_,cells_,rs_values_);
+	RedistributeExtensives(extensives_,edges_,cells_,rs_values_);
 #endif
 	UpdateCells(extensives_, edges_, eos_, cells_, rs_values_,geo_);
 	time_ += 0.5*dt;
