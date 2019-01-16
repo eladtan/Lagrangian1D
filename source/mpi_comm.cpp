@@ -302,8 +302,10 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	size_t index_upper = ((rank+1) * ntotal) / ws -1;
 	std::vector<int> nperproc(ws, 0),disp(ws,0),newn(ws,0);
 	nlocal *= 7;
+	assert(nlocal > 0);
 	MPI_Gather(&nlocal, 1, MPI_INT, &nperproc[0], 1, MPI_INT, 0, MPI_COMM_WORLD);
 	std::vector<double> tosend = ExtensiveVec2Double(cells,pcells);
+	assert(tosend.size() == nlocal);
 	std::vector<double> torecv(4);
 	if (rank == 0)
 	{
