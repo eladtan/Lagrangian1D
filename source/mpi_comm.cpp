@@ -294,6 +294,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 		newload = 1;
 	int shouldcalc = 0;
 	MPI_Allreduce(&newload, &shouldcalc, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
 	if (shouldcalc == 0)
 		return;
 
@@ -370,6 +371,7 @@ void RedistributeExtensives(std::vector<Extensive> &cells, std::vector<double> &
 	}
 	size_t Nnew = (index_upper - index_lower + 2);
 	MPI_Scatterv(&torecv[0], &newn[0], &disp[0], MPI_DOUBLE, &tosend[0], 3*Nnew, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
 	edges.resize(Nnew);
 	rsvalues.resize(Nnew);
 	for (size_t i = 0; i < Nnew; ++i)
