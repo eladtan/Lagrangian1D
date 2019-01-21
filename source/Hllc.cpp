@@ -1,6 +1,7 @@
 #include "Hllc.hpp"
 #include <algorithm>
 #include "Extensive.hpp"
+#include <cmath>
 
 Hllc::Hllc(IdealGas const & eos, bool iter) :eos_(eos),iter_(iter) {}
 
