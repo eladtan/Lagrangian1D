@@ -1,16 +1,10 @@
 #ifndef EXACTRS_HPP
 #define EXACTRS_HPP 1
 
-#include "Primitive.hpp"
-
-struct RSsolution
-{
-	double velocity;
-	double pressure;
-};
+#include "RiemannSolver.hpp"
 
 
-class ExactRS
+class ExactRS : public RiemannSolver
 {
 private:
 	const double gamma_;

@@ -46,7 +46,7 @@ namespace
 }
 
 hdsim::hdsim(double cfl, vector<Primitive> const& cells, vector<double> const& edges, Interpolation const& interp,
-	IdealGas const& eos, ExactRS const& rs,SourceTerm const& source, Geometry const& geo, 
+	IdealGas const& eos, RiemannSolver const& rs,SourceTerm const& source, Geometry const& geo,
 	const double AMR_ratio, BoundarySolution const* BS):cfl_(cfl),
 	cells_(cells),edges_(edges),interpolation_(interp),eos_(eos),rs_(rs),time_(0),cycle_(0),TotalEcool_(0),
 	extensives_(vector<Extensive>()),source_(source),geo_(geo), AMR_ratio_(AMR_ratio), BoundarySolution_(BS),dt_suggest_(-1)
@@ -112,7 +112,7 @@ namespace
 		return cfl/dt_1;
 	}
 
-	void GetRSvalues(vector<pair<Primitive,Primitive> > const& interp_values, ExactRS const&rs,
+	void GetRSvalues(vector<pair<Primitive,Primitive> > const& interp_values, RiemannSolver const&rs,
 		vector<RSsolution> &res)
 	{
 		size_t N = interp_values.size();
@@ -128,15 +128,15 @@ namespace
 		for (size_t i = 0; i < N; ++i)
 		{
 			double v = cells[i].momentum / cells[i].mass;
-			double dP = (rs_values_[i + 1].pressure * geo.GetArea(edges[i+1]) - rs_values_[i].pressure 
-				* geo.GetArea(edges[i]));
-			//double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
-			cells[i].momentum -= dP*dt;
-			double dE = (rs_values_[i + 1].pressure*rs_values_[i + 1].velocity* geo.GetArea(edges[i + 1])
-				- rs_values_[i].pressure*rs_values_[i].velocity* geo.GetArea(edges[i]))*dt;
+			double dP = -(rs_values_[i + 1].pressure * geo.GetArea(edges[i + 1]) - 
+				rs_values_[i].pressure * geo.GetArea(edges[i]));
+			double oldEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
+			cells[i].momentum += dP * dt;
+			double dE = -(rs_values_[i + 1].pressure*rs_values_[i+1].velocity* geo.GetArea(edges[i + 1]) - 
+				rs_values_[i].pressure*rs_values_[i].velocity* geo.GetArea(edges[i]))*dt;
 			cells[i].energy += dE;
-			//double newEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
-			cells[i].et += dE -dP*dt*v;
+			double newEk = cells[i].momentum*cells[i].momentum / cells[i].mass;
+			cells[i].et += dE - 0.5*(newEk - oldEk);
 		}
 	}
 
@@ -150,10 +150,10 @@ namespace
 	bool ShouldUseEntropy(Primitive const& cell, vector<RSsolution> const& rsvalues, size_t index,double et,double EntropyEt)
 	{
 		double dv = rsvalues[index + 1].velocity - rsvalues[index].velocity;
-		if (dv > 0)
-			return true;
-		if (et < EntropyEt)
-			return true;
+	//	if (dv > 0)
+	//		return true;
+		//if (et < EntropyEt)
+		//	return true;
 		double ek = cell.velocity*cell.velocity;
 		if (et < 0)
 			return true;
