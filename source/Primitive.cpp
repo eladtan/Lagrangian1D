@@ -19,25 +19,30 @@ Primitive::Primitive(double Density, double Pressure, double Velocity, double En
 	sticker(Sticker),LastCool(0)
 {}
 
-Primitive Primitive::operator-(Primitive const & other)const
+Primitive operator-(Primitive const&left, Primitive const& right)
 {
-	return Primitive(this->density-other.density,this->pressure-other.pressure,this->velocity-other.velocity,
-		this->entropy-other.entropy,this->energy-other.energy,this->sticker);
+	return Primitive(left.density- right.density, left.pressure- right.pressure, left.velocity- right.velocity,
+		left.entropy- right.entropy, left.energy- right.energy, left.sticker);
 }
 
-Primitive Primitive::operator+(Primitive const & other)const
+Primitive operator+(Primitive const&left, Primitive const& right)
 {
-	return Primitive(this->density + other.density, this->pressure + other.pressure, this->velocity + other.velocity,
-		this->entropy+other.entropy,this->energy+other.energy,this->sticker);
+	return Primitive(left.density + right.density, left.pressure + right.pressure, left.velocity + right.velocity,
+		left.entropy + right.entropy, left.energy + right.energy, left.sticker);
 }
 
-Primitive Primitive::operator*(double s)
+Primitive operator*(Primitive const&p, double s)
 {
-	return Primitive(this->density*s,this->pressure*s,this->velocity*s,this->entropy*s,this->energy*s,this->sticker);
+	return Primitive(p.density*s,p.pressure*s,p.velocity*s,p.entropy*s,p.energy*s,p.sticker);
 }
 
-Primitive Primitive::operator/(double s)
+Primitive operator*(double s, Primitive const&p)
 {
-	return Primitive(this->density/s, this->pressure/s, this->velocity/s,this->entropy/s,this->energy/s,this->sticker);
+	return p * s;
+}
+
+Primitive operator/(Primitive const&p, double s)
+{
+	return Primitive(p.density/s, p.pressure/s, p.velocity/s,p.entropy/s,p.energy/s,p.sticker);
 }
 

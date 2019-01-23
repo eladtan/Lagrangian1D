@@ -17,14 +17,17 @@ public:
 	Primitive(Primitive const& other);
 
 	Primitive(double Density, double Pressure, double Velocity,double Entropy,double Energy,unsigned char Sticker);
-
-	Primitive operator-(Primitive const& other)const;
-
-	Primitive operator+(Primitive const& other)const;
-
-	Primitive operator*(double s);
-	
-	Primitive operator/(double s);
 };
+
+
+Primitive operator-(Primitive const&left, Primitive const& right);
+
+Primitive operator+(Primitive const&left, Primitive const& right);
+
+Primitive operator*(Primitive const&p, double s);
+
+Primitive operator*(double s,Primitive const&p);
+
+Primitive operator/(Primitive const&p,  double s);
 
 #endif //PRIMITIVE_HPP
