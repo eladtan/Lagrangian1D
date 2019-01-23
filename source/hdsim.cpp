@@ -92,14 +92,14 @@ namespace
 		SourceTerm const&source,std::vector<RSsolution> const& rs_values,double &dt_suggest)
 	{
 		double force_inverse_dt = source.GetInverseTimeStep(edges);
-		double dt_1 = eos.dp2c(cells[0].density, cells[0].pressure) / (edges[1] - edges[0]);
+		double dt_1 = std::max(rs_values[0].velocity - rs_values[1].velocity,eos.dp2c(cells[0].density, cells[0].pressure)) / (edges[1] - edges[0]);
 		size_t N = cells.size();
-		for (size_t i = 1; i < N-1; ++i)
+		for (size_t i = 1; i < N; ++i)
 		{
 			double dv = -(rs_values[i + 1].velocity - rs_values[i].velocity);
 			dt_1 = std::max(dt_1, std::max(dv, eos.dp2c(cells[i].density, cells[i].pressure)) / (edges[i + 1] - edges[i]));
 		}
-		dt_1 = std::max(dt_1, eos.dp2c(cells[N - 1].density, cells[N - 1].pressure) / (edges[N] - edges[N-1]));
+		//dt_1 = std::max(dt_1, eos.dp2c(cells[N - 1].density, cells[N - 1].pressure) / (edges[N] - edges[N-1]));
 		dt_1 = max(dt_1, force_inverse_dt);
 		if (dt_suggest > 0)
 		{
