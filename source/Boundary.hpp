@@ -20,7 +20,8 @@ public:
 class VacuumInFlow : public BoundarySolution
 {
 private:
-	const bool calc_left_, calc_right_,gamma_;
+	const bool calc_left_, calc_right_;
+	const double gamma_;
 public:
 	VacuumInFlow(bool calc_left, bool calc_right,double gamma);
 

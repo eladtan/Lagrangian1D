@@ -111,10 +111,6 @@ namespace
 	double Bisection(Primitive const& left, Primitive const& right,double gamma,
 		double max_scale,double minp,double guess)
 	{
-		/*
-		double a = std::min(left.pressure, right.pressure)*1e-10;
-		double b = (left.pressure + right.pressure + left.density*left.velocity*left.velocity +
-			right.density*right.velocity*right.velocity)*10;*/
 		double a = guess*0.2;
 		double b = guess * 5;
 		double c = guess;
@@ -122,7 +118,17 @@ namespace
 		double valuec = GetValue(left, right, b , gamma);
 		double valuea = GetValue(left, right, a, gamma);
 		if (valuea*valuec > 0)
-			throw("Same sign in RS");
+		{
+			a = guess * 0.0001;
+			b = guess * 5;
+			c = guess;
+			dp = 0;
+			valuec = GetValue(left, right, b, gamma);
+			valuea = GetValue(left, right, a, gamma);
+			if (valuea*valuec > 0)
+				throw UniversalError("Same sign in RS");
+		}
+			
 		int counter = 0;
 		while (((b-a) > 1e-10*(minp + c)) || (std::abs(valuec) > 1e-7*max_scale))
 		{
