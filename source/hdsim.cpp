@@ -232,16 +232,30 @@ void hdsim::TimeAdvance()
 	GetRSvalues(interp_values_, rs_, rs_values_);
 	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_,rs_values_,dt_suggest_);
 
-
 	if (BoundarySolution_ != 0)
 	{
-		pair<RSsolution,RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
-		if (BoundarySolution_->ShouldCalc().first)
-			rs_values_[0] = bvalues.first;
-		if (BoundarySolution_->ShouldCalc().second)
-			rs_values_.back() = bvalues.second;
+#ifdef RICH_MPI
+		int rank = 0, ws = 0;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		MPI_Comm_size(MPI_COMM_WORLD, &ws);
+		if (rank == 0 || rank == (ws - 1))
+		{
+#endif
+			pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
+#ifdef RICH_MPI
+			if (rank == 0)
+#endif
+				if (BoundarySolution_->ShouldCalc().first)
+					rs_values_[0] = bvalues.first;
+#ifdef RICH_MPI
+			if (rank == ws - 1)
+#endif
+				if (BoundarySolution_->ShouldCalc().second)
+					rs_values_.back() = bvalues.second;
+#ifdef RICH_MPI
+		}
+#endif
 	}
-
 	UpdateExtensives(extensives_, rs_values_, dt,geo_,edges_);
 	source_.CalcForce(edges_, cells_, time_, extensives_,dt);
 	UpdateEdges(edges_, rs_values_, dt);
@@ -258,11 +272,27 @@ void hdsim::TimeAdvance2()
 
 	if (BoundarySolution_ != 0)
 	{
-		pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
-		if (BoundarySolution_->ShouldCalc().first)
-			rs_values_[0] = bvalues.first;
-		if (BoundarySolution_->ShouldCalc().second)
-			rs_values_.back() = bvalues.second;
+#ifdef RICH_MPI
+		int rank = 0,ws=0;
+		MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+		MPI_Comm_size(MPI_COMM_WORLD,&ws);
+		if (rank == 0 || rank == (ws - 1))
+		{
+#endif
+			pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
+#ifdef RICH_MPI
+			if (rank == 0)
+#endif
+				if (BoundarySolution_->ShouldCalc().first)
+					rs_values_[0] = bvalues.first;
+#ifdef RICH_MPI
+			if (rank == ws - 1)
+#endif
+				if (BoundarySolution_->ShouldCalc().second)
+					rs_values_.back() = bvalues.second;
+#ifdef RICH_MPI
+		}
+#endif
 	}
 	double dt = GetTimeStep(cells_, edges_, eos_, cfl_, source_,rs_values_,dt_suggest_);
 	if (cycle_ == 0)
@@ -279,17 +309,31 @@ void hdsim::TimeAdvance2()
 
 	interpolation_.GetInterpolatedValues(cells_, edges_, interp_values_, time_);
 	GetRSvalues(interp_values_, rs_, rs_values_);
+
 	if (BoundarySolution_ != 0)
 	{
-		pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
-		if (BoundarySolution_->ShouldCalc().first)
-			rs_values_[0] = bvalues.first;
-		if (BoundarySolution_->ShouldCalc().second)
+#ifdef RICH_MPI
+		int rank = 0, ws = 0;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		MPI_Comm_size(MPI_COMM_WORLD, &ws);
+		if (rank == 0 || rank == (ws - 1))
 		{
-			rs_values_.back() = bvalues.second;
+#endif
+			pair<RSsolution, RSsolution> bvalues = BoundarySolution_->GetBoundaryValues(cells_);
+#ifdef RICH_MPI
+			if (rank == 0)
+#endif
+				if (BoundarySolution_->ShouldCalc().first)
+					rs_values_[0] = bvalues.first;
+#ifdef RICH_MPI
+			if (rank == ws - 1)
+#endif
+				if (BoundarySolution_->ShouldCalc().second)
+					rs_values_.back() = bvalues.second;
+#ifdef RICH_MPI
 		}
+#endif
 	}
-
 	extensives_ = old_extensive;
 	edges_ = old_edges;
 	UpdateExtensives(extensives_, rs_values_, dt,geo_,edges_);
