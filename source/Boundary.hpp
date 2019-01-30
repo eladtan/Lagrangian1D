@@ -20,9 +20,9 @@ public:
 class VacuumInFlow : public BoundarySolution
 {
 private:
-	const bool calc_left_, calc_right_;
+	const bool calc_left_, calc_right_,gamma_;
 public:
-	VacuumInFlow(bool calc_left, bool calc_right);
+	VacuumInFlow(bool calc_left, bool calc_right,double gamma);
 
 	std::pair<RSsolution, RSsolution> GetBoundaryValues(vector<Primitive> const& cells)const;
 

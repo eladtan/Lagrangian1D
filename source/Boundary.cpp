@@ -5,16 +5,15 @@
 
 BoundarySolution::~BoundarySolution() {}
 
-VacuumInFlow::VacuumInFlow(bool calc_left, bool calc_right) :calc_left_(calc_left), calc_right_(calc_right) {}
+VacuumInFlow::VacuumInFlow(bool calc_left, bool calc_right,double gamma) :calc_left_(calc_left), calc_right_(calc_right),gamma_(gamma) {}
 
 pair<RSsolution, RSsolution> VacuumInFlow::GetBoundaryValues(vector<Primitive> const& cells)const
 {
 	RSsolution left, right;
 	left.pressure = 0;
 	right.pressure = 0;
-	left.velocity = cells[0].velocity;
-	right.velocity = cells.back().velocity+3*sqrt(5.*cells.back().pressure/cells.back().density/3.0);
-	//right.velocity = 0;
+	left.velocity = cells[0].velocity-2*std::sqrt(gamma_*cells.back().pressure / cells.back().density)/(gamma_-1);
+	right.velocity = cells.back().velocity+2*std::sqrt(gamma_*cells.back().pressure/cells.back().density) / (gamma_ - 1);
 	return pair<RSsolution, RSsolution>(left, right);
 }
 
