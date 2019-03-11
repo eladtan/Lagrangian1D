@@ -159,7 +159,7 @@ namespace
 			return true;
 		if (et > 0.001*ek)
 			return false;
-		if (dv*dv > 0.001*et)
+		if (dv*dv > 0.001*et && dv <0)
 			return false;
 		else
 			return true;
