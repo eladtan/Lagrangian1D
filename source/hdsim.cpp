@@ -181,7 +181,7 @@ namespace
 				cells[i].pressure = eos.sd2p(extensive[i].entropy/extensive[i].mass, cells[i].density);
 			else
 				cells[i].pressure = eos.de2p(cells[i].density, et);
-			cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
+//			cells[i].pressure = std::max(cells[i].pressure, cells[i].density*cells[i].velocity*cells[i].velocity*0.0001);
 			et = extensive[i].mass*eos.dp2e(cells[i].density, cells[i].pressure);
 			extensive[i].energy = 0.5*extensive[i].momentum*extensive[i].momentum / extensive[i].mass +	et;
 			extensive[i].et = et;
