@@ -2,6 +2,12 @@
 #include <algorithm>
 #include "Extensive.hpp"
 #include <cmath>
+#if defined(_MSC_VER)
+/* Microsoft C/C++-compatible compiler */
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
 
 Hllc::Hllc(IdealGas const & eos, bool iter) :eos_(eos),iter_(iter) {}
 
@@ -12,6 +18,53 @@ Hllc::~Hllc()
 
 namespace
 {
+	double fastsqrt(double x)
+	{
+		if (x<std::numeric_limits<float>::min() || x > std::numeric_limits<float>::max())
+			return std::sqrt(x);
+		double res = static_cast<double>(_mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(static_cast<float>(x)))));
+		return x * res*(1.5 - 0.5*res*res*x);
+	}
+
+	RSsolution GetFirstGuess(Primitive const & left, Primitive const & right, double gamma)
+	{
+		double Pmax = std::max(left.pressure, right.pressure);
+		double Pmin = std::min(left.pressure, right.pressure);
+		double Q = Pmax / Pmin;
+		double csl = fastsqrt(gamma*left.pressure / left.density);
+		double csr = fastsqrt(gamma*right.pressure / right.density);
+		RSsolution res;
+		// First try Ppvrs
+		double pvrs = 0.5*(Pmax + Pmin) + 0.125*(left.velocity - right.velocity)*(left.density + right.density)*
+			(csl + csr);
+		if (Q < 2 && pvrs >= Pmin && pvrs <= Pmax)
+		{
+			res.pressure = pvrs;
+			return res;
+		}
+
+		if (pvrs <= Pmin) // Use Two rarefactions
+		{
+			double z = (gamma - 1) / (2 * gamma);
+			res.pressure = std::pow((csl + csr - (gamma - 1)*(right.velocity - left.velocity)*0.5) / (csl*
+				std::pow(left.pressure, -z) + csr * std::pow(right.pressure, -z)), 1 / z);
+		}
+		else // Two shocks
+		{
+			double Al = 2 / ((gamma + 1)*left.density);
+			double Ar = 2 / ((gamma + 1)*right.density);
+			double Bl = (gamma - 1)*left.pressure / (gamma + 1);
+			double Br = (gamma - 1)*right.pressure / (gamma + 1);
+			res.pressure = std::max(0.0, res.pressure);
+			double gl = fastsqrt(Al / (res.pressure + Bl));
+			double gr = fastsqrt(Ar / (res.pressure + Br));
+			res.pressure = (gl*left.pressure + gr * right.pressure + left.velocity - right.velocity) / (gl + gr);
+			if (res.pressure < Pmin)
+				res.pressure = pvrs;
+		}
+		return res;
+	}
+
 	void PrimitiveToConserved(Primitive const& cell, Extensive &res)
 	{
 		res.mass = cell.density;
@@ -93,11 +146,12 @@ namespace
 		const double pr = right.pressure;
 		const double vr = right.velocity;
 		cr = eos.dp2c(dr, pr);
-		const double sl = vl - cl * (pstar > pl ? std::sqrt(0.8*(pstar / pl - 1) + 1) : 1);
-		const double sr = vr + cr * (pstar > pr ? std::sqrt(0.8*(pstar / pr - 1) + 1) : 1);
+		const double sl = vl - cl * (pstar > pl ? fastsqrt(0.8*(pstar / pl - 1) + 1) : 1);
+		const double sr = vr + cr * (pstar > pr ? fastsqrt(0.8*(pstar / pr - 1) + 1) : 1);
 		const double denom = 1.0 / (dl*(sl - vl) - dr * (sr - vr));
 		const double ss = (pr - pl + dl * vl*(sl - vl) - dr * vr*(sr - vr)) *denom;
-		const double ps = std::max(0.0, dl * (sl - vl)*(pr - dr * (vr - vl)*(sr - vr)) *denom - pl * dr*(sr - vr) *denom);
+		const double ps = std::max(0.0, pl+dl*(sl-vl)*(ss-vl));
+		double test = pr + dr * (sr - vr)*(ss - vr);
 		return WaveSpeeds(sl, ss, sr, ps);
 	}
 }
@@ -105,11 +159,8 @@ namespace
 RSsolution Hllc::Solve(Primitive const & left, Primitive const & right) const
 {
 	double pstar = 0;
-	/*if (iter_)
-	{
-		pstar = std::max(Hll_pstar(left, right, eos_), 0.0);
-	}
-	*/
+	pstar = std::max(Hll_pstar(left, right, eos_), 0.0);
+	RSsolution first = GetFirstGuess(left,right,5.0/3.0);
 	WaveSpeeds ws2 = estimate_wave_speeds(left, right, eos_, pstar);
 
 	if (iter_)

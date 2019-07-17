@@ -8,9 +8,11 @@
 #include <array>
 #include "ExactRS.hpp"
 
-std::array<Primitive,4> SendRecvPrimitive(std::vector<Primitive> const& cells);
+#define NGHOSTCELLS 4
 
-std::array<double, 4> SendRecvEdges(std::vector<double> const& edges);
+std::array<Primitive, NGHOSTCELLS*2> SendRecvPrimitive(std::vector<Primitive> const& cells);
+
+std::array<double, NGHOSTCELLS*2> SendRecvEdges(std::vector<double> const& edges);
 
 void RedistributeExtensives(std::vector<Extensive> &cells,std::vector<double> &edges, std::vector<Primitive> &pcells, std::vector<RSsolution> &rsvalues);
 

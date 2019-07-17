@@ -33,7 +33,12 @@ private:
 	const double AMR_ratio_;
 	BoundarySolution const* BoundarySolution_;
 	double dt_suggest_;
-	void AMR(void);
+	void AMR(
+#ifdef RICH_MPI
+		std::array<Primitive, NGHOSTCELLS * 2> ghost_cells,
+		std::array<double, NGHOSTCELLS * 2> ghost_edges
+#endif
+	);
 public:
 	hdsim(double cfl,vector<Primitive> const& cells,vector<double> const& edges,Interpolation const& interp,
 		IdealGas const& eos, RiemannSolver const& rs,SourceTerm const& source,Geometry const& geo, const double AMR_ratio = 0,

@@ -56,11 +56,15 @@ namespace
 		double csr = fastsqrt(gamma*right.pressure / right.density);
 		RSsolution res;
 		// First try Ppvrs
-		res.pressure = 0.5*(Pmax + Pmin) + 0.125*(left.velocity - right.velocity)*(left.density + right.density)*
+		double pvrs = 0.5*(Pmax + Pmin) + 0.125*(left.velocity - right.velocity)*(left.density + right.density)*
 			(csl + csr);
-		if (Q<2 && res.pressure>=Pmin && res.pressure <= Pmax)
+		if (Q < 2 && pvrs >= Pmin && pvrs <= Pmax)
+		{
+			res.pressure = pvrs;
 			return res;
-		if (res.pressure <= Pmin) // Use Two rarefactions
+		}
+			
+		if (pvrs <= Pmin) // Use Two rarefactions
 		{
 			double z = (gamma - 1) / (2 * gamma);
 			res.pressure = std::pow((csl + csr - (gamma - 1)*(right.velocity - left.velocity)*0.5) / (csl*
@@ -76,6 +80,8 @@ namespace
 			double gl = fastsqrt(Al / (res.pressure + Bl));
 			double gr = fastsqrt(Ar / (res.pressure + Br));
 			res.pressure = (gl*left.pressure + gr*right.pressure + left.velocity - right.velocity) / (gl + gr);
+			if (res.pressure < Pmin)
+				res.pressure = pvrs;
 		}
 		return res;
 	}
@@ -198,7 +204,7 @@ RSsolution ExactRS::Solve(Primitive const & left, Primitive const & right)const
 		res.pressure -= std::max(std::min(dp,res.pressure*0.5),-0.5*res.pressure);
 		value = GetValue(left, right, res.pressure, gamma_);
 		++counter;
-		if (counter > 10)
+		if (counter > 30)
 		{
 			res.pressure = Bisection(left, right, gamma_, max_scale, minp,res.pressure);
 			break;
