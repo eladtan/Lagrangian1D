@@ -447,13 +447,17 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 #endif
 )
 {
+	size_t Nlevels = 6;
+#ifdef RICH_MPI
+	Nlevels = NGHOSTCELLS;
+#endif
+	double min_size = std::pow(2.0,-static_cast<double>(Nlevels));
 	double pratio = 1.1;
 	double dratio = 1.1;
-	double min_size = 0.1;
 	size_t N = cells_.size();
 	// remove smooth small cells
 	std::vector<size_t> edge_remove;
-	for (size_t i = 3; i < N - 3; ++i)
+	for (size_t i = Nlevels; i < N - Nlevels; ++i)
 	{
 		// was left cell removed?
 		if (edge_remove.size() > 0 && (edge_remove.back() == i || edge_remove.back() == i - 1))
@@ -493,24 +497,17 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 			if (dx < AMR_ratio_*edges_[i]*0.7)
 			{
 				double Tratio2 = 1.2;
-				// Are we smooth?
-				bool smooth_left_left_left = (cells_[i - 2].density < cells_[i - 3].density * dratio) && (cells_[i - 2].density * dratio > cells_[i - 3].density)
-					&& (cells_[i - 2].pressure < cells_[i - 3].pressure*pratio) && (cells_[i - 2].pressure*pratio > cells_[i - 3].pressure);
-				bool smooth_left_left = (cells_[i - 1].density < cells_[i - 2].density * dratio) && (cells_[i - 1].density * dratio > cells_[i - 2].density)
-					&& (cells_[i - 1].pressure < cells_[i - 2].pressure*pratio) && (cells_[i - 1].pressure*pratio > cells_[i - 2].pressure);
-				bool smooth_left = (cells_[i].density < cells_[i - 1].density * dratio) && (cells_[i].density * dratio > cells_[i - 1].density)
-					&& (cells_[i].pressure < cells_[i - 1].pressure*pratio) && (cells_[i].pressure*pratio > cells_[i - 1].pressure);
-				bool smooth_right = (cells_[i].density < cells_[i + 1].density * dratio) && (cells_[i].density * dratio > cells_[i + 1].density)
-					&& (cells_[i].pressure < cells_[i + 1].pressure*pratio) && (cells_[i].pressure*pratio > cells_[i + 1].pressure);
-				bool smooth_right_right = (cells_[i + 1].density < cells_[i + 2].density * dratio) && (cells_[i + 1].density * dratio > cells_[i + 2].density)
-					&& (cells_[i + 1].pressure < cells_[i + 2].pressure*pratio) && (cells_[i + 1].pressure*pratio > cells_[i + 2].pressure);
-				bool smooth_right_right_right = (cells_[i + 2].density < cells_[i + 3].density * dratio) && (cells_[i + 2].density * dratio > cells_[i + 3].density)
-					&& (cells_[i + 2].pressure < cells_[i + 3].pressure*pratio) && (cells_[i + 2].pressure*pratio > cells_[i + 3].pressure);
-				bool Tratio_l = (cells_[i].density*cells_[i - 1].pressure) < (Tratio2*cells_[i - 1].density*cells_[i].pressure)
-					&& (Tratio2*cells_[i].density*cells_[i - 1].pressure) > (cells_[i - 1].density*cells_[i].pressure);
-				bool Tratio_r = (cells_[i].density*cells_[i + 1].pressure) < (Tratio2*cells_[i + 1].density*cells_[i].pressure)
-					&& (Tratio2*cells_[i].density*cells_[i + 1].pressure) > (cells_[i + 1].density*cells_[i].pressure);
-				if (smooth_left && smooth_right && smooth_left_left && smooth_right_right && smooth_left_left_left && smooth_right_right_right && Tratio_l && Tratio_r)
+				bool smooth = true;
+				for (size_t j = 0; j < (2 * Nlevels - 1); ++j)
+				{
+					if (!((cells_[i - Nlevels + j + 1].density < cells_[i - Nlevels + j].density * dratio) && (cells_[i - Nlevels + j + 1].density * dratio > cells_[i - Nlevels + j].density)
+						&& (cells_[i - Nlevels + j + 1].pressure < cells_[i - Nlevels + j].pressure*pratio) && (cells_[i - Nlevels + j + 1].pressure*pratio > cells_[i - Nlevels + j].pressure)))
+					{
+						smooth = false;
+						break;
+					}
+				}
+				if (smooth)
 				{
 					if ((edges_[i + 2] - edges_[i + 1]) > (edges_[i] - edges_[i - 1]))
 						edge_remove.push_back(i);
@@ -535,8 +532,8 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 	// split cells ahead of non-smooth
 	N = cells_.size();
 	std::vector<size_t> edge_split;
-	size_t Nstart = 4;
-	size_t Nend = N - 4;
+	size_t Nstart = Nlevels;
+	size_t Nend = N - Nlevels;
 	size_t shift = 0;
 	std::vector<Primitive> temp_cells;
 	std::vector<double> temp_edges;
@@ -568,24 +565,42 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 		{
 			double Tratio2 = 1.2;
 			// Are we smooth?
-			bool smooth_left_left_left_left = (temp_cells[i - 3 + shift].density < temp_cells[i - 4 + shift].density
-				* dratio) && (temp_cells[i - 3 + shift].density * dratio >
-					temp_cells[i - 4 + shift].density)
-				&& (temp_cells[i - 3 + shift].pressure < temp_cells[i - 4 + shift].pressure
-					*pratio) && (temp_cells[i - 3 + shift].pressure*pratio >
-						temp_cells[i - 4 + shift].pressure);
-			bool smooth_left_left_left = (temp_cells[i - 2 + shift].density < temp_cells[i - 3 + shift].density
-				* dratio) && (temp_cells[i - 2 + shift].density * dratio >
-					temp_cells[i - 3 + shift].density)
-				&& (temp_cells[i - 2 + shift].pressure < temp_cells[i - 3 + shift].pressure
-					*pratio) && (temp_cells[i - 2 + shift].pressure*pratio >
-						temp_cells[i - 3 + shift].pressure);
-			bool smooth_left_left = (temp_cells[i - 1 + shift].density <
-				temp_cells[i - 2 + shift].density * dratio) && (temp_cells[i - 1 + shift].density
-					* dratio > temp_cells[i - 2 + shift].density)
-				&& (temp_cells[i - 1 + shift].pressure < temp_cells[i - 2 + shift].pressure
-					*pratio) && (temp_cells[i - 1 + shift].pressure*pratio >
-						temp_cells[i - 2 + shift].pressure);
+			bool smooth = false;
+			for (size_t j = 0; j < (Nlevels-1); ++j)
+			{
+				bool local_smooth = (temp_cells[i - Nlevels + 1 + j + shift].density < temp_cells[i - Nlevels + j + shift].density
+					* dratio) && (temp_cells[i - Nlevels + 1 + j + shift].density * dratio >
+						temp_cells[i - Nlevels + j + shift].density)
+					&& (temp_cells[i - Nlevels + 1 + j + shift].pressure < temp_cells[i - Nlevels + j + shift].pressure
+						*pratio) && (temp_cells[i - Nlevels + 1 + j + shift].pressure*pratio >
+							temp_cells[i - Nlevels + j + shift].pressure);
+				double l_reduce = std::pow(2.0, -static_cast<double>(j));
+				if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.3*l_reduce)
+				{
+					smooth = true;
+					break;
+				}
+			}
+			if (!smooth)
+			{
+				for (size_t j = 1; j < (Nlevels - 1); ++j)
+				{
+					bool local_smooth = (temp_cells[i + 1 + j + shift].density < temp_cells[i + j + shift].density
+						* dratio) && (temp_cells[i + 1 + j + shift].density * dratio >
+							temp_cells[i + j + shift].density)
+						&& (temp_cells[i + 1 + j + shift].pressure < temp_cells[i + j + shift].pressure
+							*pratio) && (temp_cells[i + 1 + j + shift].pressure*pratio >
+								temp_cells[i + j + shift].pressure);
+					double l_reduce = std::pow(2.0, -static_cast<double>(j));
+					if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.3*l_reduce)
+					{
+						smooth = true;
+						break;
+					}
+				}
+			}
+			if (!smooth)
+				continue;
 			bool smooth_left = (temp_cells[i + shift].density < temp_cells[i - 1 + shift].density
 				* dratio) && (temp_cells[i + shift].density * dratio >
 					temp_cells[i - 1 + shift].density)
@@ -598,34 +613,7 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 				&& (temp_cells[i + shift].pressure < temp_cells[i + 1 + shift].pressure
 					*pratio) && (temp_cells[i + shift].pressure*pratio >
 						temp_cells[i + 1 + shift].pressure);
-			bool smooth_right_right = (temp_cells[i + 1 + shift].density <
-				temp_cells[i + 2 + shift].density * dratio) && (
-					temp_cells[i + 1 + shift].density * dratio >
-					temp_cells[i + 2 + shift].density)
-				&& (temp_cells[i + 1 + shift].pressure < temp_cells[i + 2 + shift].pressure
-					*pratio) && (temp_cells[i + 1 + shift].pressure*pratio >
-						temp_cells[i + 2 + shift].pressure);
-			bool smooth_right_right_right = (temp_cells[i + 2 + shift].density <
-				temp_cells[i + 3 + shift].density * dratio) &&
-				(temp_cells[i + 2 + shift].density * dratio > temp_cells[i + 3 + shift].density)
-				&& (temp_cells[i + 2 + shift].pressure < temp_cells[i + 3 + shift].pressure
-					*pratio) && (temp_cells[i + 2 + shift].pressure*pratio >
-						temp_cells[i + 3 + shift].pressure);
-			bool smooth_right_right_right_right = (temp_cells[i + 3 + shift].density <
-				temp_cells[i + 4 + shift].density * dratio) &&
-				(temp_cells[i + 3 + shift].density * dratio > temp_cells[i + 4 + shift].density)
-				&& (temp_cells[i + 3 + shift].pressure < temp_cells[i + 4 + shift].pressure
-					*pratio) && (temp_cells[i + 3 + shift].pressure*pratio >
-						temp_cells[i + 4 + shift].pressure);
-			if((
-				((!smooth_left_left_left_left || !smooth_right_right_right_right) &&
-					dx > AMR_ratio_*edges_[i] * 1.3) ||
-				((!smooth_left_left_left || !smooth_right_right_right) &&
-				dx>AMR_ratio_*edges_[i]*0.8) ||
-				((!smooth_left_left || !smooth_right_right) &&
-					dx > AMR_ratio_*edges_[i] * 0.4)
-				) 
-				&&(smooth_left && smooth_right))
+			if(smooth_left && smooth_right)
 			{
 				edge_split.push_back(i);
 			}
