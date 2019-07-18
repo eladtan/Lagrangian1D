@@ -477,7 +477,7 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 				&& (Tratio2*cells_[i].density*cells_[i - 1].pressure) > (cells_[i - 1].density*cells_[i].pressure);
 			bool Tratio_r = (cells_[i].density*cells_[i + 1].pressure) < (Tratio2*cells_[i + 1].density*cells_[i].pressure)
 				&& (Tratio2*cells_[i].density*cells_[i + 1].pressure) > (cells_[i + 1].density*cells_[i].pressure);
-			if (smooth_left && smooth_right && Tratio_l && Tratio_r)
+			if ((smooth_left && smooth_right && Tratio_l && Tratio_r) || (dx < AMR_ratio_*edges_[i] * min_size*0.2))
 			{
 				if ((edges_[i + 2] - edges_[i + 1]) > (edges_[i] - edges_[i - 1]))
 					edge_remove.push_back(i);
@@ -494,7 +494,7 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 		}
 		else
 		{
-			if (dx < AMR_ratio_*edges_[i]*0.7)
+			if (dx < AMR_ratio_*edges_[i]*0.6)
 			{
 				double Tratio2 = 1.2;
 				bool smooth = true;
@@ -592,7 +592,7 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 							*pratio) && (temp_cells[i + 1 + j + shift].pressure*pratio >
 								temp_cells[i + j + shift].pressure);
 					double l_reduce = std::pow(2.0, -static_cast<double>(j));
-					if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.3*l_reduce)
+					if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.4*l_reduce)
 					{
 						smooth = true;
 						break;
