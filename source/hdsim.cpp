@@ -451,7 +451,7 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 #ifdef RICH_MPI
 	Nlevels = NGHOSTCELLS;
 #endif
-	double min_size = std::pow(2.0,-static_cast<double>(Nlevels));
+	double min_size = std::pow(2.0,-0.5*static_cast<double>(Nlevels));
 	double pratio = 1.1;
 	double dratio = 1.1;
 	size_t N = cells_.size();
@@ -574,8 +574,8 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 					&& (temp_cells[i - Nlevels + 1 + j + shift].pressure < temp_cells[i - Nlevels + j + shift].pressure
 						*pratio) && (temp_cells[i - Nlevels + 1 + j + shift].pressure*pratio >
 							temp_cells[i - Nlevels + j + shift].pressure);
-				double l_reduce = std::pow(2.0, -static_cast<double>(j));
-				if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.3*l_reduce)
+				double l_reduce = std::pow(2.0, -0.5*static_cast<double>(j));
+				if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.4*l_reduce)
 				{
 					smooth = true;
 					break;
@@ -591,7 +591,7 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 						&& (temp_cells[i + 1 + j + shift].pressure < temp_cells[i + j + shift].pressure
 							*pratio) && (temp_cells[i + 1 + j + shift].pressure*pratio >
 								temp_cells[i + j + shift].pressure);
-					double l_reduce = std::pow(2.0, -static_cast<double>(j));
+					double l_reduce = std::pow(2.0, -0.5*static_cast<double>(j));
 					if (!local_smooth && dx > AMR_ratio_*edges_[i] * 1.4*l_reduce)
 					{
 						smooth = true;
