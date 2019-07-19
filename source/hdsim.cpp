@@ -457,12 +457,31 @@ std::array<double, NGHOSTCELLS * 2> ghost_edges
 	size_t N = cells_.size();
 	// remove smooth small cells
 	std::vector<size_t> edge_remove;
-	for (size_t i = Nlevels; i < N - Nlevels; ++i)
+	for (size_t i = 0; i < N ; ++i)
 	{
 		// was left cell removed?
 		if (edge_remove.size() > 0 && (edge_remove.back() == i || edge_remove.back() == i - 1))
 			continue;
 		double dx = edges_[i + 1] - edges_[i];
+		if (i < Nlevels || i >= (N - Nlevels))
+		{
+			if (dx < AMR_ratio_*edges_[i] * min_size*0.2)
+			{
+				if (i == 0)
+					edge_remove.push_back(1);
+				else
+					if(i==(N-1))
+						edge_remove.push_back(N-1);
+					else
+					{
+						if ((edges_[i + 2] - edges_[i + 1]) > (edges_[i] - edges_[i - 1]))
+							edge_remove.push_back(i);
+						else
+							edge_remove.push_back(i + 1);
+					}
+			}
+			continue;
+		}
 		// Are we too small?
 		if (dx < AMR_ratio_*edges_[i] * min_size)
 		{
